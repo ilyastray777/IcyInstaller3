@@ -7,6 +7,8 @@
 //
 #include <spawn.h>
 #include <signal.h>
+#include <stdio.h>
+#include <string.h>
 #import "ViewController.h"
 
 @interface ViewController ()
@@ -37,8 +39,8 @@ UITableView *tableView3;
 UIView *loadingView;
 UITextView *loadingArea;
 UIProgressView *progressView;
-NSMutableArray *fileLines;
-NSMutableArray *fileLines2;
+NSMutableArray *packageIDs;
+NSMutableArray *packageNames;
 //NSMutableArray *packages;
 NSMutableArray *repos;
 NSMutableArray *bigbossData;
@@ -232,7 +234,6 @@ int packageIndex;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [self loadStuff];
         [self redirectLogToDocuments];
-        //NSLog(@"Just testing");
     });
 }
 
@@ -252,15 +253,33 @@ int packageIndex;
         [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
     }
     // Get package list and put to table view
-    pid_t pid;
-    int status;
-    const char *argv[] = {"bash", "-c", "dpkg --get-selections | tr -s [:space:] '\n' | grep -v install | grep -v hold > /var/mobile/Media/Icy/Packages.txt && while read p; do string=$(dpkg -s $p | grep Name) && echo ${string:6:999} | grep -v dpkg; if [[ $string != *'Name'* ]]; then str=$(dpkg -s $p | grep 'Package:') && echo ${str:9:999}; fi; done </var/mobile/Media/Icy/Packages.txt > /var/mobile/Media/Icy/PackageNames.txt", NULL};
-    posix_spawn(&pid, "/bin/bash", NULL, NULL, (char* const*)argv, NULL);
-    waitpid(pid, &status, 0);
-    NSString *fileContents = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/PackageNames.txt" encoding:NSUTF8StringEncoding error:nil];
-    fileLines = [[NSMutableArray alloc] initWithArray:[fileContents componentsSeparatedByString:@"\n"] copyItems:YES];
-    NSString *fileContents2 = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/Packages.txt" encoding:NSUTF8StringEncoding error:nil];
-    fileLines2 = [[NSMutableArray alloc] initWithArray:[fileContents2 componentsSeparatedByString:@"\n"] copyItems:YES];
+    NSString *addToArray;
+    NSString *addToArray1 = nil;
+    packageNames = [[NSMutableArray alloc] init];
+    packageIDs = [[NSMutableArray alloc] init];
+    FILE *file = fopen("/var/lib/dpkg/status", "r");
+    char str[999];
+    char stuff[999];
+    while(fgets(str, 999, file) != NULL) {
+        if(strstr(str, "Package:")) {
+            snprintf(stuff, sizeof(stuff), "%s", str);
+            memmove(stuff, stuff+9, strlen(stuff));
+            addToArray = [NSString stringWithCString:stuff encoding:NSASCIIStringEncoding];
+            addToArray1 = addToArray;
+            [packageIDs addObject:addToArray];
+        }
+        if(strstr(str, "Name:")) {
+            snprintf(stuff, sizeof(stuff), "%s", str);
+            memmove(stuff, stuff+6, strlen(stuff));
+        }
+        if(strlen(str) < 2) {
+            addToArray = [NSString stringWithCString:stuff encoding:NSASCIIStringEncoding];
+            [packageNames addObject:addToArray];
+            [packageNames sortUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+            [packageIDs removeObjectAtIndex:[packageIDs indexOfObject:addToArray1]];
+            [packageIDs insertObject:addToArray1 atIndex:[packageNames indexOfObject:addToArray]];
+        }
+    }
     [self addLoadingText:@"Finished loading packages.\nCleaning up..."];
     [tableView reloadData];
     /*
@@ -312,7 +331,7 @@ int packageIndex;
         posix_spawn(&pid1, "/bin/bash", NULL, NULL, (char**)argv1, NULL);
         waitpid(pid, &status1, 0);*/
         [self addLoadingText:@"Everything loaded. Launching Icy Installer..."];
-        [UIView animateWithDuration:.3 delay:2 options:UIViewAnimationOptionCurveEaseIn animations:^{
+        [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
             loadingView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 20,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
         } completion:^(BOOL finished) {
             if(darkMode) {
@@ -328,7 +347,7 @@ int packageIndex;
 
 - (NSInteger)tableView:(UITableView *)theTableView numberOfRowsInSection:(NSInteger)section {
     if(theTableView == tableView) {
-        return fileLines.count;
+        return packageNames.count;
     } else if(theTableView == tableView2) {
         return searchNames.count;
     } else if(theTableView == tableView3) {
@@ -348,8 +367,8 @@ int packageIndex;
         cell.detailTextLabel.textColor = [UIColor grayColor];
     }
     if(theTableView == tableView) {
-        cell.textLabel.text = [fileLines objectAtIndex:indexPath.row];
-        cell.detailTextLabel.text = [fileLines2 objectAtIndex:indexPath.row];
+        cell.textLabel.text = [packageNames objectAtIndex:indexPath.row];
+        cell.detailTextLabel.text = [packageIDs objectAtIndex:indexPath.row];
     } else if(theTableView == tableView2) {
         cell.textLabel.text = [searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [searchDescs objectAtIndex:indexPath.row];
@@ -377,34 +396,50 @@ NSString *packageName;
 UIView *infoView;
 UITextView *infoText;
 - (void)packageInfoWithIndexPath:(NSIndexPath *)indexPath {
-    NSString *descCommand = [NSString stringWithFormat:@"dpkg -s %@ | grep -v 'Depiction:' | grep -v 'Replaces:' | grep -v 'Provides:' | grep -v 'Status:' | grep -v 'Architecture:' | grep -v 'Section:' | grep -v 'Priority:' | grep -v 'Depends:' | grep -v 'Conflicts:' | grep -v 'Installed-Size:' | grep -v 'Homepage:' | grep -v 'Maintainer:' | grep -v 'Icon:' | grep -v 'Tag:' | grep -v 'Sponsor:' > /var/mobile/Media/Icy/PackageInfo.txt",[fileLines2 objectAtIndex:indexPath.row]];
-    pid_t pid;
-    int status;
-    const char *argv[] = {"bash", "-c", [descCommand UTF8String], NULL};
-    const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
-    posix_spawn(&pid, "/bin/bash", NULL, NULL, (char**)argv, (char**)path);
-    waitpid(pid, &status, 0);
-    NSString *info = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/PackageInfo.txt" encoding:NSUTF8StringEncoding error:nil];
+    nameLabel.text = @"Info";
+    descLabel.text = [NSString stringWithFormat:@"%@",[packageIDs objectAtIndex:indexPath.row]];
+    descLabel.text = [descLabel.text stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    NSString *searchString = [NSString stringWithFormat:@"Package: %@",descLabel.text];
+    NSString *info = @"";
+    FILE *file = fopen("/var/lib/dpkg/status", "r");
+    char str[999];
+    int shouldWrite = 0;
+    const char *search = [searchString UTF8String];
+    while(fgets(str, 999, file) != NULL) {
+        if(strstr(str, search)) {
+            shouldWrite = 1;
+        }
+        if(strlen(str) < 2 && shouldWrite == 1) {
+            break;
+        }
+        if(shouldWrite == 1 && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:")) {
+            info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
+        }
+    }
+    UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height / 2 - 20)];
+    [self makeViewRound:infoTextView withRadius:10];
     infoView = [[UIView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 200)];
+    [infoView addSubview:infoTextView];
     [self.view addSubview:infoView];
-    infoText = [[UITextView alloc]initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height / 2 - 20)];
+    infoText = [[UITextView alloc] initWithFrame:infoTextView.bounds];
     infoText.editable = NO;
     infoText.scrollEnabled = YES;
     infoText.text = info;
     infoText.textColor = [UIColor whiteColor];
+    infoText.backgroundColor = [UIColor clearColor];
     CAGradientLayer *gradient = [CAGradientLayer layer];
     gradient.colors = @[(id)[UIColor colorWithRed:0.16 green:0.81 blue:0.93 alpha:1.0].CGColor, (id)[UIColor colorWithRed:0.15 green:0.48 blue:0.78 alpha:1.0].CGColor];
-    gradient.frame = CGRectMake(0,-20,infoText.bounds.size.width,[UIScreen mainScreen].bounds.size.height / 1.5);
+    gradient.frame = infoTextView.bounds;
     if(darkMode) {
         infoView.backgroundColor = [UIColor blackColor];
         infoText.backgroundColor = [UIColor blackColor];
     } else {
         infoView.backgroundColor = [UIColor whiteColor];
-        [infoText.layer insertSublayer:gradient atIndex:0];
+        [infoTextView.layer insertSublayer:gradient atIndex:0];
     }
     [infoText setFont:[UIFont boldSystemFontOfSize:15]];
     [self makeViewRound:infoText withRadius:10];
-    [infoView addSubview:infoText];
+    [infoTextView addSubview:infoText];
     UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 30,[UIScreen mainScreen].bounds.size.width - 40,40)];
     dismiss.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
     [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
@@ -423,8 +458,6 @@ UITextView *infoText;
     remove.titleLabel.textColor = [[UIColor redColor] colorWithAlphaComponent:0.5];
     [remove addTarget:self action:@selector(removePackage) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:remove];
-    nameLabel.text = @"Info";
-    descLabel.text = [NSString stringWithFormat:@"%@",[fileLines2 objectAtIndex:indexPath.row]];
 }
 
 - (void)dismissInfo {
@@ -567,12 +600,18 @@ UIView *darkenView;
         nameLabel.text = @"Getting...";
         descLabel.text = @"Downloading and installing...";
     } else if([aboutButton.currentTitle isEqualToString:@"Backup"]){
-        pid_t pid;
-        int status;
-        const char *argv[] = {"bash", "-c", "dpkg -l > /var/mobile/IcyBackup.txt", NULL};
-        posix_spawn(&pid, "/bin/bash", NULL, NULL, (char* const*)argv, NULL);
-        waitpid(pid, &status, 0);
-        [self messageWithTitle:@"Done" message:@"The package backup was saved to /var/mobile/IcyBackup.txt"];
+        if([[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Backup.txt"]) {
+            [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Backup.txt" error:nil];
+        }
+        FILE *file = fopen("/var/lib/dpkg/status", "r");
+        char str[999];
+        while(fgets(str, 999, file) != NULL) {
+            if(strstr(str, "Name:")) {
+                memmove(str, str+6, strlen(str));
+                [[NSString stringWithFormat:@"%@%@", [NSString stringWithContentsOfFile:@"/var/mobile/Backup.txt" encoding:NSUTF8StringEncoding error:nil], [NSString stringWithCString:str encoding:NSASCIIStringEncoding]] writeToFile:@"/var/mobile/Backup.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            }
+        }
+        [self messageWithTitle:@"Done" message:@"The package backup was saved to /var/mobile/Backup.txt"];
     } else {
         [self messageWithTitle:@"Some random shit happened" message:@"Literally the title."];
     }
