@@ -35,20 +35,15 @@ UILabel *manageLabel;
 UITextField *searchField;
 UITableView *tableView;
 UITableView *tableView2;
-UITableView *tableView3;
 UIView *loadingView;
 UITextView *loadingArea;
 UIProgressView *progressView;
 NSMutableArray *packageIDs;
 NSMutableArray *packageNames;
-//NSMutableArray *packages;
-NSMutableArray *repos;
-NSMutableArray *bigbossData;
 NSMutableArray *searchNames;
-NSMutableArray *searchFiles;
 NSMutableArray *searchDescs;
-NSMutableArray *searchIDs;
-NSMutableArray *searchRepos;
+NSMutableArray *searchDepictions;
+NSMutableArray *searchFilenames;
 NSString *filename;
 BOOL darkMode = NO;
 int packageIndex;
@@ -155,19 +150,12 @@ int packageIndex;
     tableView2.dataSource = self;
     tableView2.backgroundColor = [UIColor whiteColor];
     
-    /*tableView3 = [[UITableView alloc] initWithFrame:CGRectMake(13,140,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220) style:UITableViewStylePlain];
-    tableView3.delegate = self;
-    tableView3.dataSource = self;
-    tableView3.backgroundColor = [UIColor whiteColor];*/
-    
     [tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     [tableView2 setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     [self.view addSubview:tableView];
     [self.view addSubview:tableView2];
-    //[self.view addSubview:tableView3];
     tableView.hidden = YES;
     tableView2.hidden = YES;
-    //tableView3.hidden = YES;
     // Search texfield
     searchField = [[UITextField alloc]initWithFrame:CGRectMake(20,120,[UIScreen mainScreen].bounds.size.width - 40,30)];
     searchField.placeholder = @"Search";
@@ -229,8 +217,6 @@ int packageIndex;
     if(darkMode) {
         [self switchToDarkMode];
     }
-    // Stuff
-    repos = [NSMutableArray arrayWithObjects:@"BigBoss", @"ModMyi", @"Zodttd and MacCiti", @"Cydia/Telesphoreo", nil];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [self loadStuff];
         [self redirectLogToDocuments];
@@ -247,6 +233,11 @@ int packageIndex;
 }
 
 - (void)loadStuff {
+    // Initialize arrays
+    searchNames = [[NSMutableArray alloc] init];
+    searchDescs = [[NSMutableArray alloc] init];
+    searchDepictions = [[NSMutableArray alloc] init];
+    searchFilenames = [[NSMutableArray alloc] init];
     BOOL isDirectory;
     // Check for needed directory
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) {
@@ -350,8 +341,6 @@ int packageIndex;
         return packageNames.count;
     } else if(theTableView == tableView2) {
         return searchNames.count;
-    } else if(theTableView == tableView3) {
-        return repos.count;
     } else {
         return 0;
     }
@@ -372,8 +361,6 @@ int packageIndex;
     } else if(theTableView == tableView2) {
         cell.textLabel.text = [searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [searchDescs objectAtIndex:indexPath.row];
-    } else if(theTableView == tableView3) {
-        cell.textLabel.text = [repos objectAtIndex:indexPath.row];
     } else {
         cell.textLabel.text = @"Some stupid error happened";
     }
@@ -387,8 +374,6 @@ NSString *packageName;
         [self packageInfoWithIndexPath:indexPath];
     } else if(theTableView == tableView2) {
         [self installPackageWithIndexPath:indexPath];
-    } else if(theTableView == tableView3) {
-        [self searchPackagesInRepoWithIndexPath:indexPath];
     } else {
         [self messageWithTitle:@"Error" message:@"Literally an error. Go report this to me."];
     }
@@ -476,24 +461,14 @@ UITextView *infoText;
     const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
     posix_spawn(&pid, "/bin/bash", NULL, NULL, (char**)argv, (char**)path);
     waitpid(pid, &status, 0);
-    NSString *removeLog = [NSString stringWithFormat:@"Package removed with log:\n%@",[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/RemoveLog.txt" encoding:NSUTF8StringEncoding error:nil]];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        [self reloadWithMessage:removeLog];
+        [self reload];
     });
 }
 
-- (void)installDeb {
-    // Direct deb install
-    UIAlertView *input = [[UIAlertView alloc] initWithTitle:@"Enter file URL" message:@"Please enter the .deb file direct link in the field below" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Install", nil];
-    input.alertViewStyle = UIAlertViewStylePlainTextInput;
-    [input show];
-    [input release];
-}
-
 UIView *reloadView;
-UIView *messageView;
 UIView *darkenView;
-- (void)reloadWithMessage:(NSString *)message {
+- (void)reload {
     darkenView = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
     darkenView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.3];
     [self.view addSubview:darkenView];
@@ -530,26 +505,8 @@ UIView *darkenView;
     [dismiss addTarget:self action:@selector(dismissReload) forControlEvents:UIControlEventTouchUpInside];
     [reloadView addSubview:dismiss];
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        reloadView.frame = CGRectMake(30,[UIScreen mainScreen].bounds.size.height - 260,[UIScreen mainScreen].bounds.size.width - 60,230);
-    } completion:^(BOOL finished) {
-    }];
-    messageView = [[UIView alloc] initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width,30,[UIScreen mainScreen].bounds.size.width - 60,230)];
-    [self makeViewRound:messageView withRadius:10];
-    [self.view addSubview:messageView];
-    UITextView *messageTextView = [[UITextView alloc] initWithFrame:messageView.bounds];
-    [messageView addSubview:messageTextView];
-    messageTextView.text = message;
-    messageTextView.font = [UIFont boldSystemFontOfSize:15];
-    if(darkMode) {
-        messageView.backgroundColor = [UIColor blackColor];
-        messageTextView.textColor = [UIColor whiteColor];
-    } else {
-        messageView.backgroundColor = [UIColor whiteColor];
-    }
-    [UIView animateWithDuration:.3 delay:1 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        messageView.frame = CGRectMake(30,30,[UIScreen mainScreen].bounds.size.width - 60,230);
-    } completion:^(BOOL finished) {
-    }];
+        reloadView.frame = CGRectMake(30,[UIScreen mainScreen].bounds.size.height / 2 - 115,[UIScreen mainScreen].bounds.size.width - 60,230);
+    } completion:nil];
 }
 
 - (void)uicache {
@@ -571,13 +528,9 @@ UIView *darkenView;
 - (void)dismissReload {
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         reloadView.frame = CGRectMake(30,-230,[UIScreen mainScreen].bounds.size.width - 60,230);
-    } completion:^(BOOL finished) {
-        [UIView animateWithDuration:.3 delay:0 options: UIViewAnimationOptionCurveEaseIn animations:^{
-            messageView.frame = CGRectMake([UIScreen mainScreen].bounds.size.width,30,[UIScreen mainScreen].bounds.size.width - 60,230);
         } completion:^(BOOL finished) {
-            [UIView animateWithDuration:.3 animations:^ {
-               [darkenView setAlpha:0];
-            }];
+        [UIView animateWithDuration:.3 animations:^ {
+            [darkenView setAlpha:0];
         }];
     }];
 }
@@ -596,7 +549,7 @@ UIView *darkenView;
     } else if([aboutButton.currentTitle isEqualToString:@"Install"] && depictionWebView.hidden) {
         [self messageWithTitle:@"Error" message:@"You need to search for a package first."];
     } else if([aboutButton.currentTitle isEqualToString:@"Install"] && !depictionWebView.hidden) {
-        [self installPackageWithProgressAndURLString:[searchFiles objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
+        [self installPackageWithProgressAndURLString:[searchFilenames objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
         nameLabel.text = @"Getting...";
         descLabel.text = @"Downloading and installing...";
     } else if([aboutButton.currentTitle isEqualToString:@"Backup"]){
@@ -629,7 +582,6 @@ UIView *darkenView;
     self.view.backgroundColor = [UIColor blackColor];
     tableView.backgroundColor = [UIColor blackColor];
     tableView2.backgroundColor = [UIColor blackColor];
-    tableView3.backgroundColor = [UIColor blackColor];
     searchField.backgroundColor = [UIColor grayColor];
     searchField.textColor = [UIColor whiteColor];
     infoView.backgroundColor = [UIColor blackColor];
@@ -649,7 +601,6 @@ UIView *darkenView;
     self.view.backgroundColor = [UIColor whiteColor];
     tableView.backgroundColor = [UIColor whiteColor];
     tableView2.backgroundColor = [UIColor whiteColor];
-    tableView3.backgroundColor = [UIColor whiteColor];
     searchField.backgroundColor = [UIColor whiteColor];
     searchField.textColor = [UIColor blackColor];
     infoView.backgroundColor = [UIColor whiteColor];
@@ -742,147 +693,63 @@ UIView *darkenView;
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
-    //tableView3.hidden = NO;
-    //nameLabel.text = @"Choose";
-    //descLabel.text = @"Please choose a repo";
-    [self searchPackages];
+    NSArray *repos = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:NULL];
+    for (id repo in repos) {
+        NSString *fullURL = nil;
+        if([repo isEqualToString:@"ModMyi"]) fullURL = @"http://modmyi.saurik.com/";
+        else if ([repo isEqualToString:@"Zodttd"]) fullURL = @"http://cydia.zodttd.com/repo/cydia/";
+        [self searchForPackage:[[searchField.text lowercaseString] stringByReplacingOccurrencesOfString:@" " withString:@""] inRepo:@"/var/mobile/Media/Icy/Repos/ModMyi" withFullURLString:fullURL];
+    }
+    [tableView2 reloadData];
+    [self.view endEditing:YES];
     return YES;
 }
 
-- (void)searchPackages {
-    NSData *postData = [[NSString stringWithFormat:@"q=%@",[searchField.text stringByReplacingOccurrencesOfString:@" " withString:@""]] dataUsingEncoding:NSASCIIStringEncoding allowLossyConversion:YES];
-    NSString *postLength = [NSString stringWithFormat:@"%lu",(unsigned long)[postData length]];
-    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] init];
-    [request setURL:[NSURL URLWithString:@"http://server.s0n1c.org/cydia/"]];
-    [request setHTTPMethod:@"POST"];
-    [request setValue:postLength forHTTPHeaderField:@"Content-Length"];
-    [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
-    [request setHTTPBody:postData];
-    NSURLResponse *response;
-    NSData *searchData = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:nil];
-    NSMutableDictionary *array = [NSJSONSerialization JSONObjectWithData:searchData options:NSJSONReadingMutableContainers error:nil];
-    searchNames = [[NSMutableArray alloc] init];
-    int a = 0;
-    while (a < [[array allKeys] count]) {
-        NSArray *keys = [array allKeys];
-        NSString *thing = [keys objectAtIndex:a];
-        NSArray *stuff = array[thing];
-        [searchNames addObject:[stuff valueForKey:@"name"]];
-        a++;
+- (void)searchForPackage:(NSString *)package inRepo:(NSString *)repo withFullURLString:(NSString *)fullURL {
+    char str[999];
+    const char *filename = [repo UTF8String];
+    FILE *file = fopen(filename, "r");
+    int shouldWrite = 0;
+    const char *search = [package UTF8String];
+    while(fgets(str, 999, file) != NULL) {
+        if(strstr(str, search)) {
+            shouldWrite = 1;
+        }
+        if(strlen(str) < 2 && shouldWrite == 1) {
+            break;
+        }
+        if(shouldWrite == 1 && strstr(str, "Name:")) {
+            [searchNames addObject:[[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""]];
+        }
+        if(shouldWrite == 1 && strstr(str, "Description:")) {
+            [searchDescs addObject:[[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Description: " withString:@""]];
+        }
+        if(shouldWrite == 1 && strstr(str, "Depiction:")) {
+            [searchDepictions addObject:[[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Depiction: " withString:@""]];
+        }
+        if(shouldWrite == 1 && strstr(str, "Filename:")) {
+            NSString *fullLink = [NSString stringWithFormat:@"%@%@",fullURL,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
+            fullLink = [fullLink stringByReplacingOccurrencesOfString:@"Filename: " withString:@""];
+            fullLink = [fullLink stringByReplacingOccurrencesOfString:@" " withString:@""];
+            fullLink = [fullLink stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+            [searchFilenames addObject:fullLink];
+        }
     }
-    searchDescs = [[NSMutableArray alloc] init];
-    a = 0;
-    while (a < [[array allKeys] count]) {
-        NSArray *keys = [array allKeys];
-        NSString *thing = [keys objectAtIndex:a];
-        NSArray *stuff = array[thing];
-        [searchDescs addObject:[stuff valueForKey:@"desc"]];
-        a++;
-    }
-    [tableView2 reloadData];
-    searchFiles = [[NSMutableArray alloc] init];
-    a = 0;
-    while (a < [[array allKeys] count]) {
-        NSArray *keys = [array allKeys];
-        NSString *thing = [keys objectAtIndex:a];
-        NSArray *stuff = array[thing];
-        [searchFiles addObject:[stuff valueForKey:@"file"]];
-        a++;
-    }
-    searchIDs = [[NSMutableArray alloc] init];
-    a = 0;
-    while (a < [[array allKeys] count]) {
-        NSArray *keys = [array allKeys];
-        NSString *thing = [keys objectAtIndex:a];
-        NSArray *stuff = array[thing];
-        [searchIDs addObject:[stuff valueForKey:@"id"]];
-        a++;
-    }
-    searchRepos = [[NSMutableArray alloc] init];
-    a = 0;
-    while (a < [[array allKeys] count]) {
-        NSArray *keys = [array allKeys];
-        NSString *thing = [keys objectAtIndex:a];
-        NSArray *stuff = array[thing];
-        [searchRepos addObject:[stuff valueForKey:@"repo"]];
-        a++;
-    }
-    [self.view endEditing:YES];
-}
-
-// OLD THING
-NSString *repoName = nil;
-- (void)searchPackagesInRepoWithIndexPath:(NSIndexPath *)indexPath {
-    if(indexPath.row == 0) {
-        repoName = @"BigBoss";
-    }
-    if(indexPath.row == 1) {
-        repoName = @"ModMyi";
-    }
-    if(indexPath.row == 2) {
-        repoName = @"Zodttd";
-    }
-    if(indexPath.row == 3) {
-        repoName = @"Saurik";
-    }
-    pid_t pid;
-    int status;
-    const char *argv[] = {"bash", "-c", [[NSString stringWithFormat:@"cat /var/mobile/Media/Icy/%@ | grep -i \"Name: %@\" > /var/mobile/Media/Icy/SearchNames.txt", repoName, searchField.text] UTF8String], NULL};
-    posix_spawn(&pid, "/bin/bash", NULL, NULL, (char**)argv, NULL);
-    waitpid(pid, &status, 0);
-    tableView3.hidden = YES;
-    NSString *searchResults = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/SearchNames.txt" encoding:NSUTF8StringEncoding error:nil];
-    searchResults = [searchResults stringByReplacingOccurrencesOfString:@"Name: " withString:@""];
-    //packages = [[NSMutableArray alloc] initWithArray:[searchResults componentsSeparatedByString:@"\n"] copyItems:YES];
-    [tableView2 reloadData];
 }
 
 - (void)installPackageWithIndexPath:(NSIndexPath *)indexPath {
-    NSString *repoName = [searchRepos objectAtIndex:indexPath.row];
-    if([repoName isEqualToString:@"bigboss"] || [repoName isEqualToString:@"modmyi"] || [repoName isEqualToString:@"zodttd"]) {
-        [depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://cydia.saurik.com/package/%@",[searchIDs objectAtIndex:indexPath.row]]]]];
-        depictionWebView.hidden = NO;
-        [self.view bringSubviewToFront:depictionWebView];
-        packageIndex = (int) indexPath.row;
-    } else {
-        [self installPackageWithProgressAndURLString:[searchFiles objectAtIndex:indexPath.row] saveFilename:@"downloaded.deb"];
-        nameLabel.text = @"Getting...";
-        descLabel.text = @"Downloading and installing...";
-    }
-    /*NSString *searchCommand = [NSString stringWithFormat:@"packageName=\"%@\" && repoName=\"%@\" && direction=\"down\" && cat /var/mobile/Media/Icy/$repoName | grep -i -a \"Name: $packageName\" > /var/mobile/Media/Icy/SearchNames.txt && line=$(cat /var/mobile/Media/Icy/$repoName | grep -i -n -a -w -Fx \"Name: $packageName\" | cut -d : -f 1) && filename=$(sed \"${line}q;d\" /var/mobile/Media/Icy/$repoName) && while [[ $filename != *\"Filename:\"* ]]; do filename=$(sed \"${line}q;d\" /var/mobile/Media/Icy/$repoName) && if [[ $filename = *\"Filename:\"* ]]; then echo -n $filename > /var/mobile/Media/Icy/PackageLink.txt; fi; if [[ ${#filename} -lt 2 ]]; then direction=\"up\"; fi && if [[ $direction = \"down\" ]]; then line=$((line+1)); elif [[ $direction = \"up\" ]]; then line=$((line-1)); fi; done", [tableView2 cellForRowAtIndexPath:indexPath].textLabel.text, repoName];
-    pid_t pid;
-    int status;
-    const char *argv[] = {"bash", "-c", [searchCommand UTF8String], NULL};
-    posix_spawn(&pid, "/bin/bash", NULL, NULL, (char**)argv, NULL);
-    waitpid(pid, &status, 0);
-    nameLabel.text = @"Downloading...";
-    NSString *packageLink = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/PackageLink.txt" encoding:NSUTF8StringEncoding error:nil];
-    packageLink = [packageLink stringByReplacingOccurrencesOfString:@"Filename: " withString:@""];
-    NSString *fullPackageLink = nil;
-    if([repoName isEqualToString:@"BigBoss"]) {
-        fullPackageLink = [NSString stringWithFormat:@"http://apt.thebigboss.org/repofiles/cydia/%@",packageLink];
-    } else if([repoName isEqualToString:@"ModMyi"]) {
-        fullPackageLink = [NSString stringWithFormat:@"http://apt.modmyi.com/%@",packageLink];
-    } else if([repoName isEqualToString:@"Zodttd"]) {
-        fullPackageLink = [NSString stringWithFormat:@"http://cydia.zodttd.com/repo/cydia/%@",packageLink];
-    } else if([repoName isEqualToString:@"Saurik"]) {
-        fullPackageLink = [NSString stringWithFormat:@"http://apt.saurik.com/%@",packageLink];
-    } else {
-        [self messageWithTitle:@"Error" message:@"Some random error happend randomly in this random application where you randomly pressed a random button with your random finger. Please randomly report this random error to the random creator of this random application. His random Twitter page is on the random \"Home\" page in this random application."];
-    }
-    [fullPackageLink stringByReplacingOccurrencesOfString:@"\n" withString:@""];
-    [fullPackageLink stringByReplacingOccurrencesOfString:@" " withString:@""];
-    nameLabel.text = @"Getting...";
-    descLabel.text = @"Downloading and installing...";
-    [self installPackageWithProgressAndURLString:fullPackageLink saveFilename:@"downloaded.deb"];*/
+    NSString *depictionString = [searchDepictions objectAtIndex:indexPath.row];
+    depictionString = [depictionString stringByReplacingOccurrencesOfString:@" " withString:@""];
+    depictionString = [depictionString stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    [depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:depictionString]]];
+    depictionWebView.hidden = NO;
+    [self.view bringSubviewToFront:depictionWebView];
 }
 
 - (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
     if(UIInterfaceOrientationIsPortrait(toInterfaceOrientation)){
-        NSLog(@"Portrait");
         [self changeToPortrait];
-        
     }
     else if(UIInterfaceOrientationIsLandscape(toInterfaceOrientation)){
         [self changeToLandscape];
@@ -937,33 +804,24 @@ NSString *repoName = nil;
     } else {
         progressView.hidden = NO;
     }
-    NSLog(@"%.0f%%", ((100.0/self.urlResponse.expectedContentLength)*self.downloadedMutableData.length));
 }
 
 -(void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    NSLog(@"Finished, installing...");
     [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/%@",filename] atomically:YES];
-    // Depends
-    /*pid_t pid;
-    int status;
-    const char *argv[] = {"bash", "-c", "dpkg -f /var/mobile/Media/Icy/downloaded.deb Depends > /var/mobile/Media/Icy/Depends.txt", NULL};
-    posix_spawn(&pid, "/bin/bash", NULL, NULL, (char**)argv, NULL);
-    waitpid(pid, &status, 0);*/
-    // Install
     pid_t pid1;
     int status1;
-    const char *argv1[] = {"bash", "-c", "freeze -i --force-depends /var/mobile/Media/Icy/downloaded.deb > /var/mobile/Media/Icy/InstallLog.txt", NULL};
+    const char *argv1[] = {"freeze", "-i", "--force-depends", "/var/mobile/Media/Icy/downloaded.deb", NULL};
     const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
-    posix_spawn(&pid1, "/bin/bash", NULL, NULL, (char**)argv1, (char**)path);
+    posix_spawn(&pid1, "/usr/bin/freeze", NULL, NULL, (char**)argv1, (char**)path);
     waitpid(pid1, &status1, 0);
     nameLabel.text = @"Done";
     descLabel.text = @"The package was installed";
-    NSString *installLog = [NSString stringWithFormat:@"Package installed with log:\n%@",[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/InstallLog.txt" encoding:NSUTF8StringEncoding error:nil]];
-    [self reloadWithMessage:installLog];
+    [self reload];
 }
 
 - (void)installPackageWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename1 {
     filename = filename1;
+    [self messageWithTitle:@"urlshit" message:urlString];
     NSURLRequest *urlRequest = [NSURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval: 60.0];
     self.connectionManager = [[NSURLConnection alloc] initWithRequest:urlRequest delegate:self];
 }
