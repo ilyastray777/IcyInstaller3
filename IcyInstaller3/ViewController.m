@@ -792,24 +792,28 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 
 - (void)searchForPackage:(NSString *)package inRepo:(NSString *)repo withFullURLString:(NSString *)fullURL {
-    package = [NSString stringWithFormat:@"Name: %@",package];
     char str[999];
     const char *filename = [repo UTF8String];
     FILE *file = fopen(filename, "r");
-    int shouldWrite = 0;
-    const char *search = [package UTF8String];
+    BOOL shouldAdd = NO;
+    NSString *lastDesc = nil;
+    NSString *lastDepiction = nil;
+    NSString *lastFilename = nil;
+    NSString *lastName = nil;
     while(fgets(str, 999, file) != NULL) {
-        if(strlen(str) < 2) shouldWrite = 0;
-        if(strstr(str, search)) shouldWrite = 1;
-        if(shouldWrite == 1 && strstr(str, "Name:")) [searchNames addObject:[[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""]];
-        if(shouldWrite == 1 && strstr(str, "Description:")) [searchDescs addObject:[[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Description: " withString:@""]];
-        if(shouldWrite == 1 && strstr(str, "Depiction:")) [searchDepictions addObject:[[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Depiction: " withString:@""]];
-        if(shouldWrite == 1 && strstr(str, "Filename:")) {
-            NSString *fullLink = [NSString stringWithFormat:@"%@%@",fullURL,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
-            fullLink = [fullLink stringByReplacingOccurrencesOfString:@"Filename: " withString:@""];
-            fullLink = [fullLink stringByReplacingOccurrencesOfString:@" " withString:@""];
-            fullLink = [fullLink stringByReplacingOccurrencesOfString:@"\n" withString:@""];
-            [searchFilenames addObject:fullLink];
+        if(strstr(str, [package UTF8String]) && strstr(str, "Name:")) shouldAdd = YES;
+        if(strstr(str, "Description:")) lastDesc = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Description: " withString:@""];
+        if(strstr(str, "Depiction:")) lastDepiction = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Depiction: " withString:@""];
+        if(strstr(str, "Filename:")) lastFilename = [NSString stringWithFormat:@"%@%@",fullURL,[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Filename: " withString:@""]];
+        if(strstr(str, "Name:")) lastName = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""];
+        if(strlen(str) < 2 && shouldAdd) {
+            [searchNames addObject:lastName];
+            [searchDescs addObject:lastDesc];
+            [searchDepictions addObject:lastDepiction];
+            lastFilename = [lastFilename stringByReplacingOccurrencesOfString:@" " withString:@""];
+            lastFilename = [lastFilename stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+            [searchFilenames addObject:lastFilename];
+            shouldAdd = NO;
         }
     }
 }
@@ -887,18 +891,19 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 
 -(void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/%@",filename] atomically:YES];
+    [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",filename] atomically:YES];
     if([filename isEqualToString:@"downloaded.deb"]) {
         pid_t pid1;
         int status1;
-        const char *argv1[] = {"freeze", "-i", "--force-depends", "/var/mobile/Media/Icy/downloaded.deb", NULL};
+        const char *argv1[] = {"freeze", "-i", "--force-depends", "/var/mobile/Media/downloaded.deb", NULL};
         const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
         posix_spawn(&pid1, "/usr/bin/freeze", NULL, NULL, (char**)argv1, (char**)path);
         waitpid(pid1, &status1, 0);
+        [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
+        nameLabel.text = @"Done";
+        descLabel.text = @"The package was installed";
+        [self reload];
     }
-    nameLabel.text = @"Done";
-    descLabel.text = @"The package was installed";
-    [self reload];
 }
 
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename1 {
