@@ -45,6 +45,8 @@ UITextView *loadingArea;
 UIProgressView *progressView;
 NSMutableArray *packageIDs;
 NSMutableArray *packageNames;
+NSMutableArray *packageImages;
+NSMutableArray *packageIcons;
 NSMutableArray *searchNames;
 NSMutableArray *searchDescs;
 NSMutableArray *searchDepictions;
@@ -243,36 +245,35 @@ int packageIndex;
     searchDescs = [[NSMutableArray alloc] init];
     searchDepictions = [[NSMutableArray alloc] init];
     searchFilenames = [[NSMutableArray alloc] init];
+    packageIcons = [[NSMutableArray alloc] init];
     BOOL isDirectory;
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
     // Get package list and put to table view
-    NSString *addToArray;
-    NSString *addToArray1 = nil;
     packageNames = [[NSMutableArray alloc] init];
     packageIDs = [[NSMutableArray alloc] init];
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
-    char stuff[999];
+    NSString *icon = nil;
+    NSString *lastID = nil;
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, "Package:")) {
-            snprintf(stuff, sizeof(stuff), "%s", str);
-            memmove(stuff, stuff+9, strlen(stuff));
-            addToArray = [NSString stringWithCString:stuff encoding:NSASCIIStringEncoding];
-            addToArray1 = addToArray;
-            [packageIDs addObject:addToArray];
+        if(strstr(str, "Package:"))  [packageIDs addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+        if(strstr(str, "Name:")) [packageNames addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+        if(strstr(str, "Section:")) {
+            icon = [NSString stringWithFormat:@"/Applications/IcyInstaller3.app/icons/%@.png",[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Section: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+            if([icon rangeOfString:@" "].location != NSNotFound) icon = [NSString stringWithFormat:@"%@.png",[icon substringToIndex:[icon rangeOfString:@" "].location]];
+            if(![[NSFileManager defaultManager] fileExistsAtPath:icon]) icon = @"/Applications/IcyInstaller3.app/icons/Home.png";
         }
-        if(strstr(str, "Name:")) {
-            snprintf(stuff, sizeof(stuff), "%s", str);
-            memmove(stuff, stuff+6, strlen(stuff));
-        }
+        if(strstr(str, "Icon:")) icon = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Icon: file://" withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strlen(str) < 2) {
-            addToArray = [NSString stringWithCString:stuff encoding:NSASCIIStringEncoding];
-            [packageNames addObject:addToArray];
+            lastID = [packageIDs lastObject];
+            if(packageIDs.count > packageNames.count) [packageNames addObject:lastID];
+            NSString *lastObject = [packageNames lastObject];
             [packageNames sortUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
-            [packageIDs removeObjectAtIndex:[packageIDs indexOfObject:addToArray1]];
-            [packageIDs insertObject:addToArray1 atIndex:[packageNames indexOfObject:addToArray]];
+            [packageIDs removeLastObject];
+            [packageIDs insertObject:lastID atIndex:[packageNames indexOfObject:lastObject]];
+            [packageIcons insertObject:icon atIndex:[packageNames indexOfObject:lastObject]];
         }
     }
     loadingArea.text = [loadingArea.text stringByAppendingString:@"Finished loading packages.\nLaunching Icy..."];
@@ -312,6 +313,13 @@ int packageIndex;
     if(theTableView == tableView) {
         cell.textLabel.text = [packageNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [packageIDs objectAtIndex:indexPath.row];
+        UIImage *icon = [UIImage imageWithContentsOfFile:[packageIcons objectAtIndex:indexPath.row]];
+        UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
+        [icon drawInRect:CGRectMake(0,0,40,40)];
+        icon = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+        [self makeViewRound:cell.imageView withRadius:10];
+        cell.imageView.image = icon;
     } else if(theTableView == tableView2) {
         cell.textLabel.text = [searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [searchDescs objectAtIndex:indexPath.row];
