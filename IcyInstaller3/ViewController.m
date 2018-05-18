@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <bzlib.h>
+#include "NSTask.h"
 #import "ViewController.h"
 
 @interface ViewController ()
@@ -229,6 +230,7 @@ int packageIndex;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [self loadStuff];
         [self redirectLogToDocuments];
+        
     });
 }
 
@@ -414,55 +416,47 @@ UITextView *infoText;
 }
 
 - (void)removePackage {
-    pid_t pid;
-    int status;
-    const char *argv[] = {"freeze", "-r", [descLabel.text UTF8String], NULL};
-    const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
-    posix_spawn(&pid, "/usr/bin/freeze", NULL, NULL, (char**)argv, (char**)path);
-    waitpid(pid, &status, 0);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        [self reload];
-    });
+     [self reloadWithMessage:[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", descLabel.text] errors:NO]];
 }
 
 #pragma mark - Reload methods
 UIView *reloadView;
-UIView *darkenView;
-- (void)reload {
-    darkenView = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    darkenView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.3];
-    [self.view addSubview:darkenView];
-    reloadView = [[UIView alloc] initWithFrame:CGRectMake(30,-230,[UIScreen mainScreen].bounds.size.width - 60,230)];
+- (void)reloadWithMessage:(NSString *)message {
+    reloadView = [[UIView alloc] initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height)];
     if(darkMode) reloadView.backgroundColor = [UIColor blackColor];
     else reloadView.backgroundColor = [UIColor whiteColor];
-    [self makeViewRound:reloadView withRadius:10];
     [self.view addSubview:reloadView];
-    UIButton *respring = [[UIButton alloc] initWithFrame:CGRectMake(20, 20, reloadView.bounds.size.width - 40, 50)];
+    UITextView *messageView = [[UITextView alloc] initWithFrame:CGRectMake(20,0,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height - 235)];
+    messageView.font = [UIFont boldSystemFontOfSize:15];
+    messageView.text = message;
+    messageView.editable = NO;
+    [reloadView addSubview:messageView];
+    UIButton *respring = [[UIButton alloc] initWithFrame:CGRectMake(20, reloadView.bounds.size.height - 210, reloadView.bounds.size.width - 40, 50)];
     [self makeViewRound:respring withRadius:10];
-    respring.backgroundColor = [[UIColor greenColor] colorWithAlphaComponent:0.1];
+    respring.backgroundColor = [UIColor colorWithRed:0.10 green:0.74 blue:0.61 alpha:1];
     [respring setTitle:@"Respring" forState:UIControlStateNormal];
-    [respring setTitleColor:[[UIColor greenColor] colorWithAlphaComponent:0.5] forState:UIControlStateNormal];
+    [respring setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [respring.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [respring addTarget:self action:@selector(respring) forControlEvents:UIControlEventTouchUpInside];
     [reloadView addSubview:respring];
-    UIButton *uicache = [[UIButton alloc] initWithFrame:CGRectMake(20, 90, reloadView.bounds.size.width - 40, 50)];
+    UIButton *uicache = [[UIButton alloc] initWithFrame:CGRectMake(20, reloadView.bounds.size.height - 140, reloadView.bounds.size.width - 40, 50)];
     [self makeViewRound:uicache withRadius:10];
-    uicache.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
+    uicache.backgroundColor = [UIColor colorWithRed:0.50 green:0.55 blue:0.55 alpha:1];
     [uicache setTitle:@"Reload cache" forState:UIControlStateNormal];
-    [uicache setTitleColor:[[UIColor blueColor] colorWithAlphaComponent:0.5] forState:UIControlStateNormal];
+    [uicache setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [uicache.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [uicache addTarget:self action:@selector(uicache) forControlEvents:UIControlEventTouchUpInside];
     [reloadView addSubview:uicache];
-    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20, 160, reloadView.bounds.size.width - 40, 50)];
+    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20, reloadView.bounds.size.height - 70, reloadView.bounds.size.width - 40, 50)];
     [self makeViewRound:dismiss withRadius:10];
-    dismiss.backgroundColor = [[UIColor redColor] colorWithAlphaComponent:0.1];
+    dismiss.backgroundColor = [UIColor colorWithRed:0.90 green:0.49 blue:0.13 alpha:1];
     [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
-    [dismiss setTitleColor:[[UIColor redColor] colorWithAlphaComponent:0.5] forState:UIControlStateNormal];
+    [dismiss setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [dismiss addTarget:self action:@selector(dismissReload) forControlEvents:UIControlEventTouchUpInside];
     [reloadView addSubview:dismiss];
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        reloadView.frame = CGRectMake(30,[UIScreen mainScreen].bounds.size.height / 2 - 115,[UIScreen mainScreen].bounds.size.width - 60,230);
+        reloadView.frame = CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
     } completion:nil];
 }
 
@@ -484,17 +478,14 @@ UIView *darkenView;
 
 - (void)dismissReload {
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        reloadView.frame = CGRectMake(30,-230,[UIScreen mainScreen].bounds.size.width - 60,230);
-        } completion:^(BOOL finished) {
-        [UIView animateWithDuration:.3 animations:^ {
-            [darkenView setAlpha:0];
-        }];
-    }];
+        reloadView.frame = CGRectMake([UIScreen mainScreen].bounds.size.width,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
+        } completion:nil];
 }
 
 #pragma mark - Manage methods
 
 UIView *manageView;
+UIView *darkenView;
 - (void)manage {
     darkenView = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
     darkenView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.3];
@@ -883,7 +874,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     searchField.frame = CGRectMake(20,120,[UIScreen mainScreen].bounds.size.height - 40,20);
 }
 
-#pragma mark - Download progress methods
+#pragma mark - Random backend methods
 -(void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
     self.urlResponse = response;
 }
@@ -901,22 +892,38 @@ int bunzip_one(const char file[999], const char output[999]) {
 -(void)connectionDidFinishLoading:(NSURLConnection *)connection {
     [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",filename] atomically:YES];
     if([filename isEqualToString:@"downloaded.deb"]) {
-        pid_t pid1;
+        /*pid_t pid1;
         int status1;
         const char *argv1[] = {"freeze", "-i", "--force-depends", "/var/mobile/Media/downloaded.deb", NULL};
         const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
-        posix_spawn(&pid1, "/usr/bin/freeze", NULL, NULL, (char**)argv1, (char**)path);
-        waitpid(pid1, &status1, 0);
+        posix_spawn(&pid1, "/usr/bin/freeze NO PLZ NO", NULL, NULL, (char**)argv1, (char**)path);
+        waitpid(pid1, &status1, 0);*/
+        [self reloadWithMessage:[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO]];
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
         nameLabel.text = @"Done";
         descLabel.text = @"The package was installed";
-        [self reload];
     }
 }
 
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename1 {
     filename = filename1;
     self.connectionManager = [[NSURLConnection alloc] initWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval: 60.0] delegate:self];
+}
+
+- (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors {
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:command];
+    [task setCurrentDirectoryPath:@"/"];
+    [task setArguments:args];
+    NSPipe *out = [NSPipe pipe];
+    NSPipe *err = [NSPipe pipe];
+    [task setStandardOutput:out];
+    [task setStandardError:err];
+    [task launch];
+    [task waitUntilExit];
+    [task release];
+    if(errors) return [[[NSString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
+    else return [[[NSString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
 }
 
 @end

@@ -39,6 +39,7 @@
 /* Begin PBXFileReference section */
 		661045C320A0884B008AEC88 /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; path = icons; sourceTree = "<group>"; };
 		66277D8120A2C3CB005051A0 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = usr/lib/libbz2.tbd; sourceTree = SDKROOT; };
+		666AC9D620ADC92C001BE2A6 /* NSTask.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSTask.h; sourceTree = "<group>"; };
 		667F5B66202CC3FE0083C5D9 /* IcyInstaller3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IcyInstaller3.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		667F5B69202CC3FE0083C5D9 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		667F5B6A202CC3FE0083C5D9 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -119,6 +120,7 @@
 				667F5B6A202CC3FE0083C5D9 /* AppDelegate.m */,
 				667F5B6C202CC3FE0083C5D9 /* ViewController.h */,
 				667F5B6D202CC3FE0083C5D9 /* ViewController.m */,
+				666AC9D620ADC92C001BE2A6 /* NSTask.h */,
 				661045C320A0884B008AEC88 /* icons */,
 				667F5B72202CC3FE0083C5D9 /* Assets.xcassets */,
 				667F5B77202CC3FE0083C5D9 /* Info.plist */,
