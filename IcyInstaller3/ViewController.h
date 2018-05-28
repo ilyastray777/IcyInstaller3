@@ -8,6 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController <NSURLConnectionDataDelegate, UITableViewDelegate>
+@interface ViewController : UIViewController <NSURLConnectionDataDelegate, UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate>
 
 @end
