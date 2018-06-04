@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <bzlib.h>
+#include <unistd.h>
+#include <netdb.h>
 #include "NSTask.h"
 #import "ViewController.h"
 
@@ -28,13 +30,12 @@
 @property (strong, nonatomic) UILabel *dateLabel;
 @property (strong, nonatomic) UIWebView *welcomeWebView;
 @property (strong, nonatomic) UIWebView *depictionWebView;
+@property (strong, nonatomic) UIWebView *packageWebView;
 @property (strong, nonatomic) UIView *navigationView;
+@property (strong, nonatomic) UIToolbar *toolbar;
 @property (strong, nonatomic) UIImageView *homeImage;
-@property (strong, nonatomic) UIImageView *homeImageSEL;
 @property (strong, nonatomic) UIImageView *sourcesImage;
-@property (strong, nonatomic) UIImageView *sourcesImageSEL;
 @property (strong, nonatomic) UIImageView *manageImage;
-@property (strong, nonatomic) UIImageView *manageImageSEL;
 @property (strong, nonatomic) UILabel *homeLabel;
 @property (strong, nonatomic) UILabel *sourcesLabel;
 @property (strong, nonatomic) UILabel *manageLabel;
@@ -85,7 +86,7 @@ int packageIndex;
     [self makeViewRound:_aboutButton withRadius:5];
     [self.view addSubview:_aboutButton];
     // The top label
-    _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(26,50,[UIScreen mainScreen].bounds.size.width,40)];
+    _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(26,50,[UIScreen mainScreen].bounds.size.width - 130,40)];
     _nameLabel.text = @"Icy Installer";
     _nameLabel.backgroundColor = [UIColor clearColor];
     [_nameLabel setFont:[UIFont boldSystemFontOfSize:30]];
@@ -100,7 +101,7 @@ int packageIndex;
     _dateLabel.textColor = [UIColor grayColor];
     [_dateLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [self.view addSubview:_dateLabel];
-    // The homepage website
+    // The homepage webview, temporair and toreplace with something native like the AppStore homepage
     _welcomeWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
     [_welcomeWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://artikus.pe.hu/Icy.html"]]];
     [self.view addSubview:_welcomeWebView];
@@ -108,6 +109,11 @@ int packageIndex;
     _depictionWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,120,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 180)];
     [self.view addSubview:_depictionWebView];
     _depictionWebView.hidden = YES;
+    // The package webview
+    _packageWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220)];
+    [self.view addSubview:_packageWebView];
+    _packageWebView.hidden = YES;
+    _packageWebView.hidden = YES;
     // Change the user agent to a desktop one, so when we view depictions "Open in Cydia" doesn't appear
     NSDictionary *dictionary = @{@"UserAgent": @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1 Safari/605.1.15"};
     [[NSUserDefaults standardUserDefaults] registerDefaults:dictionary];
@@ -115,26 +121,25 @@ int packageIndex;
     // Navigation, I guess
     _navigationView = [[UIView alloc]initWithFrame:CGRectMake(0, [UIScreen mainScreen].bounds.size.height - 60, [UIScreen mainScreen].bounds.size.width, 60)];
     _navigationView.backgroundColor = [UIColor clearColor];
-    UIView *border = [[UIView alloc]initWithFrame:CGRectMake(0, 0, _navigationView.frame.size.width, 1)];
-    border.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.3];
-    //[_navigationView addSubview:border];
     [self.view addSubview:_navigationView];
     [self.view bringSubviewToFront:_navigationView];
-    UIToolbar *toolbar = [[UIToolbar alloc] initWithFrame:_navigationView.bounds];
-    [_navigationView.layer insertSublayer:[toolbar layer] atIndex:0];
+    _toolbar = [[UIToolbar alloc] initWithFrame:_navigationView.bounds];
+    if(darkMode) [_toolbar setBarTintColor:[UIColor blackColor]];
+    else [_toolbar setBarTintColor:[UIColor whiteColor]];
+    [_navigationView.layer insertSublayer:[_toolbar layer] atIndex:0];
     // The homeImage
-    _homeImageSEL = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/HomeSEL.png"]];
-    _homeImageSEL.frame = CGRectMake(30,10,32,32);
-    [_navigationView addSubview:_homeImageSEL];
     _homeImage = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/Home.png"]];
     _homeImage.frame = CGRectMake(30,10,32,32);
     _homeImage.userInteractionEnabled = YES;
-    _homeImage.hidden = YES;
+    _homeImage.image = [_homeImage.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    if(darkMode) [_homeImage setTintColor:[UIColor orangeColor]];
+    else _homeImage.tintColor = coolerBlueColor;
     [_navigationView addSubview:_homeImage];
     // The home label
     _homeLabel = [[UILabel alloc] initWithFrame:CGRectMake(27,45,40,10)];
     _homeLabel.textAlignment = NSTextAlignmentCenter;
-    _homeLabel.textColor = coolerBlueColor;
+    if(darkMode) _homeLabel.textColor = [UIColor orangeColor];
+    else _homeLabel.textColor = coolerBlueColor;
     _homeLabel.text = @"Home";
     [_homeLabel setFont:[UIFont boldSystemFontOfSize:10]];
     [_navigationView addSubview:_homeLabel];
@@ -142,11 +147,9 @@ int packageIndex;
     _sourcesImage = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/Sources.png"]];
     _sourcesImage.frame = CGRectMake([UIScreen mainScreen].bounds.size.width / 2 - 16, 10, 32, 32);
     _sourcesImage.userInteractionEnabled = YES;
+    _sourcesImage.image = [_sourcesImage.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    _sourcesImage.tintColor = [UIColor grayColor];
     [_navigationView addSubview:_sourcesImage];
-    _sourcesImageSEL = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/SourcesSEL.png"]];
-    _sourcesImageSEL.frame = CGRectMake([UIScreen mainScreen].bounds.size.width / 2 - 16, 10, 32, 32);
-    _sourcesImageSEL.hidden = YES;
-    [_navigationView addSubview:_sourcesImageSEL];
     // The sources label
     _sourcesLabel = [[UILabel alloc]initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width / 2 - 25,45,50,10)];
     _sourcesLabel.textColor = [UIColor grayColor];
@@ -158,11 +161,9 @@ int packageIndex;
     _manageImage = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/Installed.png"]];
     _manageImage.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 62,10,32,32);
     _manageImage.userInteractionEnabled = YES;
+    _manageImage.image = [_manageImage.image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    _manageImage.tintColor = [UIColor grayColor];
     [_navigationView addSubview:_manageImage];
-    _manageImageSEL = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/InstalledSEL.png"]];
-    _manageImageSEL.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 62,10,32,32);
-    _manageImageSEL.hidden = YES;
-    [_navigationView addSubview:_manageImageSEL];
     // The manage label
     _manageLabel = [[UILabel alloc]initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width - 70,40,50,20)];
     _manageLabel.textColor = [UIColor grayColor];
@@ -182,7 +183,7 @@ int packageIndex;
     _tableView.delegate = self;
     _tableView.dataSource = self;
     _tableView.backgroundColor = [UIColor whiteColor];
-    _tableView2 = [[UITableView alloc] initWithFrame:CGRectMake(13,160,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 140) style:UITableViewStylePlain];
+    _tableView2 = [[UITableView alloc] initWithFrame:CGRectMake(13,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
     _tableView2.delegate = self;
     _tableView2.dataSource = self;
     _tableView2.backgroundColor = [UIColor whiteColor];
@@ -193,10 +194,12 @@ int packageIndex;
     _tableView.hidden = YES;
     _tableView2.hidden = YES;
     // Search texfield
-    _searchField = [[UITextField alloc]initWithFrame:CGRectMake(20,120,[UIScreen mainScreen].bounds.size.width - 40,30)];
+    _searchField = [[UITextField alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,30)];
     _searchField.placeholder = @"Search";
-    _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.3];
-    _searchField.textAlignment = NSTextAlignmentCenter;
+    _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
+    UIView *paddingView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 5, 20)];
+    _searchField.leftView = paddingView;
+    _searchField.leftViewMode = UITextFieldViewModeAlways;
     _searchField.returnKeyType = UIReturnKeySearch;
     _searchField.delegate = self;
     _searchField.hidden = YES;
@@ -213,7 +216,8 @@ int packageIndex;
     CAGradientLayer *gradient = [CAGradientLayer layer];
     gradient.colors = @[(id)[UIColor colorWithRed:0.16 green:0.81 blue:0.93 alpha:1.0].CGColor, (id)[UIColor colorWithRed:0.15 green:0.48 blue:0.78 alpha:1.0].CGColor];
     gradient.frame = gradientView.bounds;
-    if(!darkMode) [gradientView.layer insertSublayer:gradient atIndex:0];
+    if(darkMode) gradientView.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
+    else [gradientView.layer insertSublayer:gradient atIndex:0];
     [_loadingView addSubview:gradientView];
     // Top label
     UILabel *loadingLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 50, [UIScreen mainScreen].bounds.size.width, 50)];
@@ -355,20 +359,9 @@ int removeIndex;
 - (void)packageInfoWithIndexPath:(NSIndexPath *)indexPath {
     removeIndex = (int)indexPath.row;
     [_aboutButton setTitle:@"Remove" forState:UIControlStateNormal];
-    _aboutButton.titleLabel.textColor = coolerBlueColor;
+    if(darkMode) _aboutButton.titleLabel.textColor = [UIColor orangeColor];
+    else _aboutButton.titleLabel.textColor = coolerBlueColor;
     _nameLabel.text = [_tableView cellForRowAtIndexPath:indexPath].textLabel.text;
-    NSString *searchString = [NSString stringWithFormat:@"Package: %@",[_packageIDs objectAtIndex:indexPath.row]];
-    NSString *info = @"";
-    FILE *file = fopen("/var/lib/dpkg/status", "r");
-    char str[999];
-    int shouldWrite = 0;
-    const char *search = [searchString UTF8String];
-    while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, search)) shouldWrite = 1;
-        if(strlen(str) < 2 && shouldWrite == 1) break;
-        if(shouldWrite == 1 && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:") && !strstr(str, "Conflicts:") && !strstr(str, "Depends:")) info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
-    }
-    fclose(file);
     UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height / 2 + 1)];
     [self makeViewRound:infoTextView withRadius:10];
     infoView = [[UIView alloc] initWithFrame:CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 161,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161)];
@@ -377,12 +370,11 @@ int removeIndex;
     infoText = [[UITextView alloc] initWithFrame:infoTextView.bounds];
     infoText.editable = NO;
     infoText.scrollEnabled = YES;
-    infoText.text = info;
     infoText.textColor = [UIColor whiteColor];
     infoText.backgroundColor = [UIColor clearColor];
     if(darkMode) {
+        infoTextView.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
         infoView.backgroundColor = [UIColor blackColor];
-        infoText.backgroundColor = [UIColor blackColor];
     } else {
         infoTextView.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
         infoView.backgroundColor = [UIColor whiteColor];
@@ -392,29 +384,71 @@ int removeIndex;
     [self makeViewRound:infoText withRadius:10];
     [infoTextView addSubview:infoText];
     UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 50,[UIScreen mainScreen].bounds.size.width - 40,40)];
-    dismiss.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
+    if(darkMode) dismiss.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
+    else dismiss.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
     [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
     dismiss.layer.masksToBounds = YES;
     dismiss.layer.cornerRadius = 10;
     [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    dismiss.titleLabel.textColor = [[UIColor blueColor] colorWithAlphaComponent:0.5];
+    if(darkMode) dismiss.titleLabel.textColor = [UIColor orangeColor];
+    else dismiss.titleLabel.textColor = [[UIColor blueColor] colorWithAlphaComponent:0.5];
     [dismiss addTarget:self action:@selector(dismissInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:dismiss];
     UIButton *more = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
     more.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
     [more setTitle:@"More info" forState:UIControlStateNormal];
+    [more setTitle:@"More info unavailable" forState:UIControlStateDisabled];
     more.layer.masksToBounds = YES;
     more.layer.cornerRadius = 10;
+    more.enabled = NO;
     [more.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     more.titleLabel.textColor = [[UIColor orangeColor] colorWithAlphaComponent:0.5];
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:more];
+    NSString *searchString = [NSString stringWithFormat:@"Package: %@",[_packageIDs objectAtIndex:indexPath.row]];
+    NSString *info = @"";
+    FILE *file = fopen("/var/lib/dpkg/status", "r");
+    char str[999];
+    BOOL shouldWrite = NO;
+    const char *search = [searchString UTF8String];
+    while(fgets(str, 999, file) != NULL) {
+        if(strstr(str, search)) shouldWrite = YES;
+        if(strlen(str) < 2 && shouldWrite) break;
+        if(shouldWrite && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:") && !strstr(str, "Conflicts:") && !strstr(str, "Depends:")) info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
+        if(shouldWrite && strstr(str, "Depiction:")) {
+            more.enabled = YES;
+            more.titleLabel.textColor = [UIColor orangeColor];
+        }
+    }
+    fclose(file);
+    infoText.text = info;
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         infoView.frame  = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 160);
     } completion:nil];
 }
 
+- (void)moreInfo {
+    if(![self isNetworkAvailable]) {
+        [self messageWithTitle:@"Error" message:@"This action requires an internet connection. If you are connected to the internet, but the problem still occurs, try relaunching Icy."];
+        return;
+    }
+    FILE *file = fopen("/var/lib/dpkg/status", "r");
+    char str[999];
+    char search[999];
+    snprintf(search, sizeof(search), "Package: %s", [[_packageIDs objectAtIndex:removeIndex] UTF8String]);
+    BOOL shouldReturn = NO;
+    while (fgets(str, 999, file) != NULL) {
+        if(strstr(str, search)) shouldReturn = YES;
+        if(strstr(str, "Depiction:") && shouldReturn) break;
+    }
+    fclose(file);
+    [_packageWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] substringFromIndex:11] stringByReplacingOccurrencesOfString:@"\n" withString:@""]]]];
+    _packageWebView.hidden = NO;
+    [self.view bringSubviewToFront:_packageWebView];
+}
+
 - (void)dismissInfo {
+    _packageWebView.hidden = YES;
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         infoView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161);
     } completion:nil];
@@ -630,7 +664,7 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 
 - (void)updatePackages {
-    
+    // TODO
 }
 
 - (void)about {
@@ -665,34 +699,41 @@ int bunzip_one(const char file[999], const char output[999]) {
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"darkMode"];
     [[NSUserDefaults standardUserDefaults] synchronize];
     darkMode = YES;
-    _navigationView.backgroundColor = [UIColor blackColor];
+    _aboutButton.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
+    _aboutButton.titleLabel.textColor = [UIColor orangeColor];
+    [_toolbar setBarTintColor:[UIColor blackColor]];
     _nameLabel.textColor = [UIColor whiteColor];
-    _dateLabel.textColor = [UIColor whiteColor];
+    _dateLabel.textColor = [UIColor grayColor];
     self.view.backgroundColor = [UIColor blackColor];
     _tableView.backgroundColor = [UIColor blackColor];
     _tableView2.backgroundColor = [UIColor blackColor];
-    _searchField.backgroundColor = [UIColor grayColor];
+    _searchField.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
     _searchField.textColor = [UIColor whiteColor];
     infoView.backgroundColor = [UIColor blackColor];
     [_welcomeWebView stringByEvaluatingJavaScriptFromString:@"document.body.style.background = 'black'; var p = document.getElementsByTagName('p'); for (var i = 0; i < p.length; i++) { p[i].style.color = 'white'; }"];
     _searchField.keyboardAppearance = UIKeyboardAppearanceDark;
+    [self homeAction];
 }
 
 - (void)switchToLightMode {
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"darkMode"];
     [[NSUserDefaults standardUserDefaults] synchronize];
     darkMode = NO;
-    _navigationView.backgroundColor = [UIColor whiteColor];
+    _aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
+    _aboutButton.titleLabel.textColor = [UIColor blueColor];
+    [_toolbar setBarTintColor:[UIColor whiteColor]];
     _nameLabel.textColor = [UIColor blackColor];
-    _dateLabel.textColor = [UIColor blackColor];
+    _dateLabel.textColor = [UIColor grayColor];
     self.view.backgroundColor = [UIColor whiteColor];
     _tableView.backgroundColor = [UIColor whiteColor];
     _tableView2.backgroundColor = [UIColor whiteColor];
     _searchField.backgroundColor = [UIColor whiteColor];
     _searchField.textColor = [UIColor blackColor];
+    _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
     infoView.backgroundColor = [UIColor whiteColor];
     [_welcomeWebView reload];
     _searchField.keyboardAppearance = UIKeyboardAppearanceLight;
+    [self homeAction];
 }
 
 #pragma mark - Navigation methods
@@ -708,17 +749,17 @@ int bunzip_one(const char file[999], const char output[999]) {
         }
         [_aboutButton layoutIfNeeded];
     }];
-    _aboutButton.titleLabel.textColor = coolerBlueColor;
+    if(darkMode) _aboutButton.titleLabel.textColor = [UIColor orangeColor];
+    else _aboutButton.titleLabel.textColor = coolerBlueColor;
     _welcomeWebView.hidden = NO;
     _depictionWebView.hidden = YES;
-    _homeImage.hidden = YES;
-    _homeImageSEL.hidden = NO;
-    _homeLabel.textColor = coolerBlueColor;
-    _sourcesImageSEL.hidden = YES;
-    _sourcesImage.hidden = NO;
+    if(darkMode) _homeImage.tintColor = [UIColor orangeColor];
+    else _homeImage.tintColor = coolerBlueColor;
+    if(darkMode) _homeLabel.textColor = [UIColor orangeColor];
+    else _homeLabel.textColor = coolerBlueColor;
+    _sourcesImage.tintColor = [UIColor grayColor];
     _sourcesLabel.textColor = [UIColor grayColor];
-    _manageImageSEL.hidden = YES;
-    _manageImage.hidden = NO;
+    _manageImage.tintColor = [UIColor grayColor];
     _manageLabel.textColor = [UIColor grayColor];
     _tableView.hidden = YES;
     _tableView2.hidden = YES;
@@ -731,22 +772,22 @@ int bunzip_one(const char file[999], const char output[999]) {
         [_aboutButton setTitle:@"Manage" forState:UIControlStateNormal];
         [_aboutButton layoutIfNeeded];
     }];
-    _aboutButton.titleLabel.textColor = coolerBlueColor;
+    if(darkMode) _aboutButton.titleLabel.textColor = [UIColor orangeColor];
+    else _aboutButton.titleLabel.textColor = coolerBlueColor;
     _welcomeWebView.hidden = YES;
     _depictionWebView.hidden = YES;
-    _homeImageSEL.hidden = YES;
-    _homeImage.hidden = NO;
+    _homeImage.tintColor = [UIColor grayColor];
     _homeLabel.textColor = [UIColor grayColor];
-    _sourcesImageSEL.hidden = NO;
-    _sourcesImage.hidden = YES;
-    _sourcesLabel.textColor = coolerBlueColor;
-    _manageImageSEL.hidden = YES;
-    _manageImage.hidden = NO;
+    if(darkMode) _sourcesImage.tintColor = [UIColor orangeColor];
+    else _sourcesImage.tintColor = coolerBlueColor;
+    if(darkMode) _sourcesLabel.textColor = [UIColor orangeColor];
+    else _sourcesLabel.textColor = coolerBlueColor;
+    _manageImage.tintColor = [UIColor grayColor];
     _manageLabel.textColor = [UIColor grayColor];
     _tableView.hidden = YES;
     _tableView2.hidden = NO;
     _searchField.hidden = NO;
-    _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor lightTextColor]}];
+    if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor darkTextColor]}];
     [self.view bringSubviewToFront:_navigationView];
 }
 - (void)manageAction {
@@ -756,18 +797,18 @@ int bunzip_one(const char file[999], const char output[999]) {
         [_aboutButton setTitle:@"Backup" forState:UIControlStateNormal];
         [_aboutButton layoutIfNeeded];
     }];
-    _aboutButton.titleLabel.textColor = coolerBlueColor;
+    if(darkMode) _aboutButton.titleLabel.textColor = [UIColor orangeColor];
+    else _aboutButton.titleLabel.textColor = coolerBlueColor;
     _welcomeWebView.hidden = YES;
     _depictionWebView.hidden = YES;
-    _homeImageSEL.hidden = YES;
-    _homeImage.hidden = NO;
+    _homeImage.tintColor = [UIColor grayColor];
     _homeLabel.textColor = [UIColor grayColor];
-    _sourcesImageSEL.hidden = YES;
-    _sourcesImage.hidden = NO;
+    _sourcesImage.tintColor = [UIColor grayColor];
     _sourcesLabel.textColor = [UIColor grayColor];
-    _manageImageSEL.hidden = NO;
-    _manageImage.hidden = YES;
-    _manageLabel.textColor = coolerBlueColor;
+    if(darkMode) _manageImage.tintColor = [UIColor orangeColor];
+    else _manageImage.tintColor = coolerBlueColor;
+    if(darkMode) _manageLabel.textColor = [UIColor orangeColor];
+    else _manageLabel.textColor = coolerBlueColor;
     _tableView.hidden = NO;
     _tableView2.hidden = YES;
     _searchField.hidden = YES;
@@ -966,6 +1007,15 @@ int bunzip_one(const char file[999], const char output[999]) {
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
+}
+
+-(BOOL)isNetworkAvailable {
+    char *hostname;
+    struct hostent *hostinfo;
+    hostname = "google.com";
+    hostinfo = gethostbyname (hostname);
+    if (hostinfo == NULL) return NO;
+    else return YES;
 }
 
 @end
