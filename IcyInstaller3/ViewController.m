@@ -25,7 +25,7 @@
 // UI
 @property (strong, nonatomic) UIButton *aboutButton;
 @property (strong, nonatomic) UILabel *nameLabel;
-@property (strong, nonatomic) UILabel *descLabel;
+@property (strong, nonatomic) UILabel *dateLabel;
 @property (strong, nonatomic) UIWebView *welcomeWebView;
 @property (strong, nonatomic) UIWebView *depictionWebView;
 @property (strong, nonatomic) UIView *navigationView;
@@ -51,11 +51,15 @@
 @property (strong, nonatomic) NSMutableArray *packageImages;
 @property (strong, nonatomic) NSMutableArray *packageIcons;
 
-// Package search methods
+// Package search arrays
 @property (strong, nonatomic) NSMutableArray *searchNames;
 @property (strong, nonatomic) NSMutableArray *searchDescs;
 @property (strong, nonatomic) NSMutableArray *searchDepictions;
 @property (strong, nonatomic) NSMutableArray *searchFilenames;
+
+// Reload needed arrays
+@property (nonatomic) NSUInteger oldApplications;
+@property (nonatomic) NSUInteger oldTweaks;
 
 @end
 #define coolerBlueColor [UIColor colorWithRed:0.00 green:0.52 blue:1.00 alpha:1.0];
@@ -64,12 +68,15 @@ int packageIndex;
 @implementation ViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
+    // Get arrays needed for reload
+    _oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
+    _oldTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil].count;
     // Get value of darkMode
     darkMode = [[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"];
     // Stuff for downloading with progress
     self.downloadedMutableData = [[NSMutableData alloc] init];
     // The button at the right
-    _aboutButton = [[UIButton alloc]initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width - 120,33,75,30)];
+    _aboutButton = [[UIButton alloc]initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width - 100,55,75,30)];
     _aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
     if(darkMode) [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
     else [_aboutButton setTitle:@"Dark" forState:UIControlStateNormal];
@@ -78,17 +85,23 @@ int packageIndex;
     [self makeViewRound:_aboutButton withRadius:5];
     [self.view addSubview:_aboutButton];
     // The top label
-    _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(26,26,[UIScreen mainScreen].bounds.size.width,40)];
+    _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(26,50,[UIScreen mainScreen].bounds.size.width,40)];
     _nameLabel.text = @"Icy Installer";
+    _nameLabel.backgroundColor = [UIColor clearColor];
     [_nameLabel setFont:[UIFont boldSystemFontOfSize:30]];
     [self.view addSubview:_nameLabel];
     // The less top but still top label
-    _descLabel = [[UILabel alloc]initWithFrame:CGRectMake(26,76,[UIScreen mainScreen].bounds.size.width,20)];
-    _descLabel.text = @"Where the possibilities are endless";
-    [_descLabel setFont:[UIFont boldSystemFontOfSize:16]];
-    [self.view addSubview:_descLabel];
+    _dateLabel = [[UILabel alloc]initWithFrame:CGRectMake(26,26,[UIScreen mainScreen].bounds.size.width,20)];
+    NSCalendar *calendar = [NSCalendar currentCalendar];
+    NSDateComponents *components = [calendar components:NSCalendarUnitWeekday | NSCalendarUnitDay | NSCalendarUnitMonth fromDate:[NSDate date]];
+    NSArray *weekdays = @[@"Sunday", @"Monday", @"Tuesday", @"Wednesday", @"Thursday", @"Friday", @"Saturday"];
+    NSArray *months = @[@"January", @"February", @"March", @"April", @"May", @"June", @"July", @"August", @"September", @"October", @"November", @"December"];
+    _dateLabel.text = [[NSString stringWithFormat:@"%@, %@ %zd",[weekdays objectAtIndex:[components weekday] - 1],[months objectAtIndex:[components month] - 1],[components day]] uppercaseString];
+    _dateLabel.textColor = [UIColor grayColor];
+    [_dateLabel setFont:[UIFont boldSystemFontOfSize:15]];
+    [self.view addSubview:_dateLabel];
     // The homepage website
-    _welcomeWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,120,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 180)];
+    _welcomeWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
     [_welcomeWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://artikus.pe.hu/Icy.html"]]];
     [self.view addSubview:_welcomeWebView];
     // The depiction webview
@@ -101,10 +114,14 @@ int packageIndex;
     [[NSUserDefaults standardUserDefaults] synchronize];
     // Navigation, I guess
     _navigationView = [[UIView alloc]initWithFrame:CGRectMake(0, [UIScreen mainScreen].bounds.size.height - 60, [UIScreen mainScreen].bounds.size.width, 60)];
+    _navigationView.backgroundColor = [UIColor clearColor];
     UIView *border = [[UIView alloc]initWithFrame:CGRectMake(0, 0, _navigationView.frame.size.width, 1)];
     border.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.3];
-    [_navigationView addSubview:border];
+    //[_navigationView addSubview:border];
     [self.view addSubview:_navigationView];
+    [self.view bringSubviewToFront:_navigationView];
+    UIToolbar *toolbar = [[UIToolbar alloc] initWithFrame:_navigationView.bounds];
+    [_navigationView.layer insertSublayer:[toolbar layer] atIndex:0];
     // The homeImage
     _homeImageSEL = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/HomeSEL.png"]];
     _homeImageSEL.frame = CGRectMake(30,10,32,32);
@@ -161,11 +178,11 @@ int packageIndex;
     UITapGestureRecognizer *manageGesture = [[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(manageAction)];
     [_manageImage addGestureRecognizer:manageGesture];
     // Table views
-    _tableView = [[UITableView alloc] initWithFrame:CGRectMake(13,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 160) style:UITableViewStylePlain];
+    _tableView = [[UITableView alloc] initWithFrame:CGRectMake(13,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
     _tableView.delegate = self;
     _tableView.dataSource = self;
     _tableView.backgroundColor = [UIColor whiteColor];
-    _tableView2 = [[UITableView alloc] initWithFrame:CGRectMake(13,160,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220) style:UITableViewStylePlain];
+    _tableView2 = [[UITableView alloc] initWithFrame:CGRectMake(13,160,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 140) style:UITableViewStylePlain];
     _tableView2.delegate = self;
     _tableView2.dataSource = self;
     _tableView2.backgroundColor = [UIColor whiteColor];
@@ -326,39 +343,35 @@ int packageIndex;
 NSString *packageName;
 - (void)tableView:(UITableView *)theTableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if(theTableView == _tableView) [self packageInfoWithIndexPath:indexPath];
-        else if(theTableView == _tableView2) [self showDepictionForPackageWithIndexPath:indexPath];
-        else [self messageWithTitle:@"Error" message:@"Literally an error. Go report this to @ArtikusHG."];
+    else if(theTableView == _tableView2) [self showDepictionForPackageWithIndexPath:indexPath];
+    else [self messageWithTitle:@"Error" message:@"Literally an error. Go report this to @ArtikusHG."];
 }
 
 #pragma mark - Package management methods
 
 UIView *infoView;
 UITextView *infoText;
+int removeIndex;
 - (void)packageInfoWithIndexPath:(NSIndexPath *)indexPath {
-    _nameLabel.text = @"Info";
-    _descLabel.text = [NSString stringWithFormat:@"%@",[_packageIDs objectAtIndex:indexPath.row]];
-    _descLabel.text = [_descLabel.text stringByReplacingOccurrencesOfString:@"\n" withString:@""];
-    NSString *searchString = [NSString stringWithFormat:@"Package: %@",_descLabel.text];
+    removeIndex = (int)indexPath.row;
+    [_aboutButton setTitle:@"Remove" forState:UIControlStateNormal];
+    _aboutButton.titleLabel.textColor = coolerBlueColor;
+    _nameLabel.text = [_tableView cellForRowAtIndexPath:indexPath].textLabel.text;
+    NSString *searchString = [NSString stringWithFormat:@"Package: %@",[_packageIDs objectAtIndex:indexPath.row]];
     NSString *info = @"";
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
     int shouldWrite = 0;
     const char *search = [searchString UTF8String];
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, search)) {
-            shouldWrite = 1;
-        }
-        if(strlen(str) < 2 && shouldWrite == 1) {
-            break;
-        }
-        if(shouldWrite == 1 && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:")) {
-            info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
-        }
+        if(strstr(str, search)) shouldWrite = 1;
+        if(strlen(str) < 2 && shouldWrite == 1) break;
+        if(shouldWrite == 1 && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:") && !strstr(str, "Conflicts:") && !strstr(str, "Depends:")) info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
     }
     fclose(file);
-    UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height / 2 - 20)];
+    UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height / 2 + 1)];
     [self makeViewRound:infoTextView withRadius:10];
-    infoView = [[UIView alloc] initWithFrame:CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 160,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 160)];
+    infoView = [[UIView alloc] initWithFrame:CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 161,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161)];
     [infoView addSubview:infoTextView];
     [self.view addSubview:infoView];
     infoText = [[UITextView alloc] initWithFrame:infoTextView.bounds];
@@ -367,15 +380,13 @@ UITextView *infoText;
     infoText.text = info;
     infoText.textColor = [UIColor whiteColor];
     infoText.backgroundColor = [UIColor clearColor];
-    CAGradientLayer *gradient = [CAGradientLayer layer];
-    gradient.colors = @[(id)[UIColor colorWithRed:0.16 green:0.81 blue:0.93 alpha:1.0].CGColor, (id)[UIColor colorWithRed:0.15 green:0.48 blue:0.78 alpha:1.0].CGColor];
-    gradient.frame = infoTextView.bounds;
     if(darkMode) {
         infoView.backgroundColor = [UIColor blackColor];
         infoText.backgroundColor = [UIColor blackColor];
     } else {
+        infoTextView.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
         infoView.backgroundColor = [UIColor whiteColor];
-        [infoTextView.layer insertSublayer:gradient atIndex:0];
+        infoText.textColor = [UIColor blackColor];
     }
     [infoText setFont:[UIFont boldSystemFontOfSize:15]];
     [self makeViewRound:infoText withRadius:10];
@@ -385,19 +396,19 @@ UITextView *infoText;
     [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
     dismiss.layer.masksToBounds = YES;
     dismiss.layer.cornerRadius = 10;
-    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:25]];
+    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     dismiss.titleLabel.textColor = [[UIColor blueColor] colorWithAlphaComponent:0.5];
     [dismiss addTarget:self action:@selector(dismissInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:dismiss];
-    UIButton *remove = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
-    remove.backgroundColor = [[UIColor redColor]colorWithAlphaComponent:0.1];
-    [remove setTitle:@"Remove" forState:UIControlStateNormal];
-    remove.layer.masksToBounds = YES;
-    remove.layer.cornerRadius = 10;
-    [remove.titleLabel setFont:[UIFont boldSystemFontOfSize:25]];
-    remove.titleLabel.textColor = [[UIColor redColor] colorWithAlphaComponent:0.5];
-    [remove addTarget:self action:@selector(removePackageButtonAction) forControlEvents:UIControlEventTouchUpInside];
-    [infoView addSubview:remove];
+    UIButton *more = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    more.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
+    [more setTitle:@"More info" forState:UIControlStateNormal];
+    more.layer.masksToBounds = YES;
+    more.layer.cornerRadius = 10;
+    [more.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
+    more.titleLabel.textColor = [[UIColor orangeColor] colorWithAlphaComponent:0.5];
+    [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
+    [infoView addSubview:more];
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         infoView.frame  = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 160);
     } completion:nil];
@@ -405,76 +416,72 @@ UITextView *infoText;
 
 - (void)dismissInfo {
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        infoView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 160);
+        infoView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161);
     } completion:nil];
     [self manageAction];
 }
 
 - (void)removePackageButtonAction {
-    [self removePackageWithBundleID:_descLabel.text];
+    [self removePackageWithBundleID:[_packageIDs objectAtIndex:removeIndex]];
+    [self reload];
 }
 
 UIView *dependencyView;
 NSMutableArray *dependencies;
+UIAlertView *dependencyAlert;
 - (void)removePackageWithBundleID:(NSString *)bundleID {
-    //[self reloadWithMessage:[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", _descLabel.text] errors:NO]];
     NSString *output = [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", bundleID] errors:YES];
+    // If the command had dependency errors we do some extra stuff to remove dependencies too
     if([output rangeOfString:@"dpkg: dependency problems prevent removal"].location != NSNotFound) {
-        output = [output stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"dpkg: dependency problems prevent removal of %@:\n",_descLabel.text] withString:@""];
+        output = [output stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"dpkg: dependency problems prevent removal of %@:\n",bundleID] withString:@""];
         dependencies = [[[NSMutableArray alloc] init] autorelease];
         NSMutableArray *dependencyNames = [[[NSMutableArray alloc] init] autorelease];
         for (id object in [output componentsSeparatedByString:@"\n"]) if([object rangeOfString:@"depends"].location != NSNotFound) [dependencies addObject:[[object substringToIndex:[[object substringFromIndex:1] rangeOfString:@" "].location + 1] stringByReplacingOccurrencesOfString:@" " withString:@""]];
         dependencies = [[[NSOrderedSet orderedSetWithArray:dependencies] array] mutableCopy];
         for (id object in dependencies) [dependencyNames addObject:[self packageNameForBundleID:object]];
-        dependencyView = [[UIView alloc] initWithFrame:CGRectMake(20,-[UIScreen mainScreen].bounds.size.height - 180,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height - 180)];
-        if(darkMode) dependencyView.backgroundColor = [UIColor blackColor];
-        else dependencyView.backgroundColor = [UIColor whiteColor];
-        [self makeViewRound:dependencyView withRadius:10];
-        [self.view addSubview:dependencyView];
-        UITextView *dependencyText = [[UITextView alloc] initWithFrame:CGRectMake(0,2,dependencyView.bounds.size.width,dependencyView.bounds.size.height - 70)];
-        dependencyText.text = [NSString stringWithFormat:@"You're trying to remove the package %@, however, the following packages depend on this package:\n",_descLabel.text];
-        for(id object in dependencyNames) dependencyText.text = [dependencyText.text stringByAppendingString:[NSString stringWithFormat:@"- %@\n",object]];
-        dependencyText.text = [dependencyText.text stringByAppendingString:@"Would you still like to remove the package? All of its dependencies are also going to be removed."];
-        if(darkMode) dependencyText.textColor = [UIColor whiteColor];
-        dependencyText.backgroundColor = [UIColor clearColor];
-        dependencyText.font = [UIFont boldSystemFontOfSize:15];
-        [dependencyView addSubview:dependencyText];
-        UIButton *noButton = [[UIButton alloc] initWithFrame:CGRectMake(10,dependencyView.bounds.size.height - 40,dependencyView.bounds.size.width / 2 - 20,30)];
-        noButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
-        [noButton.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-        [noButton setTitle:@"No" forState:UIControlStateNormal];
-        noButton.titleLabel.textColor = coolerBlueColor;
-        [self makeViewRound:noButton withRadius:10];
-        [noButton addTarget:self action:@selector(dismissDependencyWarning) forControlEvents:UIControlEventTouchUpInside];
-        [dependencyView addSubview:noButton];
-        UIButton *yesButton = [[UIButton alloc] initWithFrame:CGRectMake(dependencyView.bounds.size.width - dependencyView.bounds.size.width / 2 + 5,dependencyView.bounds.size.height - 40,dependencyView.bounds.size.width / 2 - 20,30)];
-        yesButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
-        [yesButton.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-        [yesButton setTitle:@"Yes" forState:UIControlStateNormal];
-        yesButton.titleLabel.textColor = coolerBlueColor;
-        [self makeViewRound:yesButton withRadius:10];
-        [yesButton addTarget:self action:@selector(removeAllPackages) forControlEvents:UIControlEventTouchUpInside];
-        [dependencyView addSubview:yesButton];
-        darkenView = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
-        darkenView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.7];
-        [self.view addSubview:darkenView];
-        [self.view bringSubviewToFront:dependencyView];
-        [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-            dependencyView.frame = CGRectMake(20,100,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height - 180);
-        } completion:nil];
+        NSString *message = @"The following packages depend on the package you're trying to remove:\n";
+        for(id object in dependencyNames) message = [message stringByAppendingString:[NSString stringWithFormat:@"- %@\n",object]];
+        message = [message stringByAppendingString:@"Would you also like to remove those packages?"];
+        dependencyAlert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", nil];
+        [dependencyAlert show];
+        [dependencyAlert release];
     }
 }
 
-- (void)dismissDependencyWarning {
-    [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        dependencyView.frame = CGRectMake(20,-[UIScreen mainScreen].bounds.size.height - 180,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height - 180);
-    } completion:nil];
-    darkenView.hidden = YES;
-    darkenView.alpha = 0;
+UIAlertView *respringAlert;
+- (void)respring {
+    respringAlert = [[UIAlertView alloc] initWithTitle:@"Respring required" message:@"Would you like to respring right now?" delegate:self cancelButtonTitle:@"No" otherButtonTitles:@"Yes", nil];
+    [respringAlert show];
+    [respringAlert release];
 }
 
-- (void)removeAllPackages {
-    for (id object in dependencies) [self removePackageWithBundleID:object];
+- (void)uicache {
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Running uicache" message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+    [alert show];
+    // Run uicache
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        pid_t pid;
+        int status;
+        const char *argv[] = {"uicache", NULL};
+        posix_spawn(&pid, "/usr/bin/uicache", NULL, NULL, (char* const*)argv, NULL);
+        waitpid(pid, &status, 0);
+        [alert dismissWithClickedButtonIndex:0 animated:YES];
+        [alert release];
+    });
+}
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+    if(alertView == dependencyAlert && buttonIndex != [alertView cancelButtonIndex]) {
+        for (id object in dependencies) [self removePackageWithBundleID:object];
+        [self reload];
+    }
+    if(alertView == respringAlert && buttonIndex != [alertView cancelButtonIndex]) {
+        pid_t pid;
+        int status;
+        const char *argv[] = {"killall", "-9", "SpringBoard", NULL};
+        posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char**)argv, NULL);
+        waitpid(pid, &status, 0);
+    }
 }
 
 - (NSString *)packageNameForBundleID:(NSString *)bundleID {
@@ -491,67 +498,12 @@ NSMutableArray *dependencies;
     return [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] substringFromIndex:6] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
 }
 
-#pragma mark - Reload methods
-UIView *reloadView;
-- (void)reloadWithMessage:(NSString *)message {
-    reloadView = [[UIView alloc] initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height)];
-    if(darkMode) reloadView.backgroundColor = [UIColor blackColor];
-    else reloadView.backgroundColor = [UIColor whiteColor];
-    [self.view addSubview:reloadView];
-    UITextView *messageView = [[UITextView alloc] initWithFrame:CGRectMake(20,0,[UIScreen mainScreen].bounds.size.width - 40,[UIScreen mainScreen].bounds.size.height - 235)];
-    messageView.font = [UIFont boldSystemFontOfSize:15];
-    messageView.text = message;
-    messageView.editable = NO;
-    [reloadView addSubview:messageView];
-    UIButton *respring = [[UIButton alloc] initWithFrame:CGRectMake(20, reloadView.bounds.size.height - 210, reloadView.bounds.size.width - 40, 50)];
-    [self makeViewRound:respring withRadius:10];
-    respring.backgroundColor = [UIColor colorWithRed:0.10 green:0.74 blue:0.61 alpha:1];
-    [respring setTitle:@"Respring" forState:UIControlStateNormal];
-    [respring setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [respring.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [respring addTarget:self action:@selector(respring) forControlEvents:UIControlEventTouchUpInside];
-    [reloadView addSubview:respring];
-    UIButton *uicache = [[UIButton alloc] initWithFrame:CGRectMake(20, reloadView.bounds.size.height - 140, reloadView.bounds.size.width - 40, 50)];
-    [self makeViewRound:uicache withRadius:10];
-    uicache.backgroundColor = [UIColor colorWithRed:0.50 green:0.55 blue:0.55 alpha:1];
-    [uicache setTitle:@"Reload cache" forState:UIControlStateNormal];
-    [uicache setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [uicache.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [uicache addTarget:self action:@selector(uicache) forControlEvents:UIControlEventTouchUpInside];
-    [reloadView addSubview:uicache];
-    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20, reloadView.bounds.size.height - 70, reloadView.bounds.size.width - 40, 50)];
-    [self makeViewRound:dismiss withRadius:10];
-    dismiss.backgroundColor = [UIColor colorWithRed:0.90 green:0.49 blue:0.13 alpha:1];
-    [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
-    [dismiss setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [dismiss addTarget:self action:@selector(dismissReload) forControlEvents:UIControlEventTouchUpInside];
-    [reloadView addSubview:dismiss];
-    [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        reloadView.frame = CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
-    } completion:nil];
-}
-
-- (void)uicache {
-    pid_t pid;
-    int status;
-    const char *argv[] = {"uicache", NULL};
-    posix_spawn(&pid, "/usr/bin/uicache", NULL, NULL, (char* const*)argv, NULL);
-    waitpid(pid, &status, 0);
-}
-
-- (void)respring {
-    pid_t pid;
-    int status;
-    const char *argv[] = {"killall", "-9", "SpringBoard", NULL};
-    posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char* const*)argv, NULL);
-    waitpid(pid, &status, 0);
-}
-
-- (void)dismissReload {
-    [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        reloadView.frame = CGRectMake([UIScreen mainScreen].bounds.size.width,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
-        } completion:nil];
+#pragma mark - Reload method
+- (void)reload {
+    NSArray *newApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil];
+    NSArray *newTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil];
+    if(newApplications.count != _oldApplications) [self uicache];
+    if(newTweaks.count != _oldTweaks) [self respring];
 }
 
 #pragma mark - Manage methods
@@ -692,23 +644,18 @@ int bunzip_one(const char file[999], const char output[999]) {
         [self messageWithTitle:@"Error" message:@"You need to search for a package first."];
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && !_depictionWebView.hidden) {
         _nameLabel.text = @"Getting...";
-        _descLabel.text = @"Downloading and installing...";
         [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
-        if([[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Backup.txt"]) {
-            [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Backup.txt" error:nil];
-        }
+        if([[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Backup.txt"]) [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Backup.txt" error:nil];
         FILE *file = fopen("/var/lib/dpkg/status", "r");
         char str[999];
         while(fgets(str, 999, file) != NULL) {
-            if(strstr(str, "Name:")) {
-                memmove(str, str+6, strlen(str));
-                [[NSString stringWithFormat:@"%@%@", [NSString stringWithContentsOfFile:@"/var/mobile/Backup.txt" encoding:NSUTF8StringEncoding error:nil], [NSString stringWithCString:str encoding:NSASCIIStringEncoding]] writeToFile:@"/var/mobile/Backup.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
-            }
+            if(strstr(str, "Name:")) [[NSString stringWithFormat:@"%@%@", [[NSString stringWithContentsOfFile:@"/var/mobile/Backup.txt" encoding:NSUTF8StringEncoding error:nil] stringByReplacingOccurrencesOfString:@"(null)" withString:@""], [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""]] writeToFile:@"/var/mobile/Backup.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
         }
         fclose(file);
         [self messageWithTitle:@"Done" message:@"The package backup was saved to /var/mobile/Backup.txt"];
     } else if([_aboutButton.currentTitle isEqualToString:@"Manage"]) [self manage];
+    else if([_aboutButton.currentTitle isEqualToString:@"Remove"]) [self removePackageButtonAction];
     else [self messageWithTitle:@"Some random shit happened" message:@"Literally the title."];
 }
 
@@ -720,7 +667,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     darkMode = YES;
     _navigationView.backgroundColor = [UIColor blackColor];
     _nameLabel.textColor = [UIColor whiteColor];
-    _descLabel.textColor = [UIColor whiteColor];
+    _dateLabel.textColor = [UIColor whiteColor];
     self.view.backgroundColor = [UIColor blackColor];
     _tableView.backgroundColor = [UIColor blackColor];
     _tableView2.backgroundColor = [UIColor blackColor];
@@ -737,7 +684,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     darkMode = NO;
     _navigationView.backgroundColor = [UIColor whiteColor];
     _nameLabel.textColor = [UIColor blackColor];
-    _descLabel.textColor = [UIColor blackColor];
+    _dateLabel.textColor = [UIColor blackColor];
     self.view.backgroundColor = [UIColor whiteColor];
     _tableView.backgroundColor = [UIColor whiteColor];
     _tableView2.backgroundColor = [UIColor whiteColor];
@@ -752,7 +699,7 @@ int bunzip_one(const char file[999], const char output[999]) {
 
 - (void)homeAction {
     _nameLabel.text = @"Icy Installer";
-    _descLabel.text = @"Where the possibilities are endless";
+    _dateLabel.hidden = NO;
     [UIView performWithoutAnimation:^{
         if(darkMode) {
             [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
@@ -779,7 +726,7 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 - (void)sourcesAction {
     _nameLabel.text = @"Sources";
-    _descLabel.text = @"Search Cydia package sources";
+    _dateLabel.hidden = YES;
     [UIView performWithoutAnimation:^{
         [_aboutButton setTitle:@"Manage" forState:UIControlStateNormal];
         [_aboutButton layoutIfNeeded];
@@ -800,10 +747,11 @@ int bunzip_one(const char file[999], const char output[999]) {
     _tableView2.hidden = NO;
     _searchField.hidden = NO;
     _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor lightTextColor]}];
+    [self.view bringSubviewToFront:_navigationView];
 }
 - (void)manageAction {
     _nameLabel.text = @"Manage";
-    _descLabel.text = @"Manage already installed packages";
+    _dateLabel.hidden = NO;
     [UIView performWithoutAnimation:^{
         [_aboutButton setTitle:@"Backup" forState:UIControlStateNormal];
         [_aboutButton layoutIfNeeded];
@@ -823,6 +771,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     _tableView.hidden = NO;
     _tableView2.hidden = YES;
     _searchField.hidden = YES;
+    [self.view bringSubviewToFront:_navigationView];
 }
 
 #pragma mark - Small but useful bits of code
@@ -913,9 +862,9 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 
 - (void)changeToPortrait {
-    _aboutButton.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 120,33,75,30);
-    _nameLabel.frame = CGRectMake(26,26,[UIScreen mainScreen].bounds.size.width,40);
-    _descLabel.frame = CGRectMake(26,76,[UIScreen mainScreen].bounds.size.width,20);
+    _aboutButton.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 120,55,75,30);
+    _nameLabel.frame = CGRectMake(26,50,[UIScreen mainScreen].bounds.size.width,40);
+    _dateLabel.frame = CGRectMake(26,26,[UIScreen mainScreen].bounds.size.width,20);
     _welcomeWebView.frame = CGRectMake(0,120,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 200);
     _navigationView.frame = CGRectMake(0, [UIScreen mainScreen].bounds.size.height - 75, [UIScreen mainScreen].bounds.size.width, 75);
     _homeImage.frame = CGRectMake(30,10,32,32);
@@ -930,9 +879,9 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 
 - (void)changeToLandscape {
-    _aboutButton.frame = CGRectMake([UIScreen mainScreen].bounds.size.height - 120,33,75,30);
-    _nameLabel.frame = CGRectMake(26,26,[UIScreen mainScreen].bounds.size.height,40);
-    _descLabel.frame = CGRectMake(26,76,[UIScreen mainScreen].bounds.size.height,20);
+    _aboutButton.frame = CGRectMake([UIScreen mainScreen].bounds.size.height - 120,55,75,30);
+    _nameLabel.frame = CGRectMake(26,50,[UIScreen mainScreen].bounds.size.height,40);
+    _dateLabel.frame = CGRectMake(26,26,[UIScreen mainScreen].bounds.size.height,20);
     _welcomeWebView.frame = CGRectMake(0,120,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 200);
     _navigationView.frame = CGRectMake(0, [UIScreen mainScreen].bounds.size.width - 75, [UIScreen mainScreen].bounds.size.height, 75);
     _homeImage.frame = CGRectMake(30,10,32,32);
@@ -964,16 +913,10 @@ int bunzip_one(const char file[999], const char output[999]) {
 -(void)connectionDidFinishLoading:(NSURLConnection *)connection {
     [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
     if([_filename isEqualToString:@"downloaded.deb"]) {
-        /*pid_t pid1;
-        int status1;
-        const char *argv1[] = {"freeze", "-i", "--force-depends", "/var/mobile/Media/downloaded.deb", NULL};
-        const char *path[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/bin/X11:/usr/games", NULL};
-        posix_spawn(&pid1, "/usr/bin/freeze NO PLZ NO", NULL, NULL, (char**)argv1, (char**)path);
-        waitpid(pid1, &status1, 0);*/
-        [self reloadWithMessage:[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO]];
+        [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO];
+        [self reload];
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
         _nameLabel.text = @"Done";
-        _descLabel.text = @"The package was installed";
     }
 }
 
