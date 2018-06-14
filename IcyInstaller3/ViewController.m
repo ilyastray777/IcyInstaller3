@@ -11,7 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <bzlib.h>
-#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include "NSTask.h"
 #import "ViewController.h"
@@ -104,15 +105,16 @@ int packageIndex;
     // The homepage webview, temporair and toreplace with something native like the AppStore homepage
     _welcomeWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
     [_welcomeWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://artikus.pe.hu/Icy.html"]]];
+    _welcomeWebView.scrollView.contentInset = UIEdgeInsetsMake(0,0,60,0);
     [self.view addSubview:_welcomeWebView];
     // The depiction webview
-    _depictionWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,120,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 180)];
+    _depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
+    _depictionWebView.scrollView.contentInset = UIEdgeInsetsMake(0,0,60,0);
     [self.view addSubview:_depictionWebView];
     _depictionWebView.hidden = YES;
     // The package webview
-    _packageWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220)];
+    _packageWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220)];
     [self.view addSubview:_packageWebView];
-    _packageWebView.hidden = YES;
     _packageWebView.hidden = YES;
     // Change the user agent to a desktop one, so when we view depictions "Open in Cydia" doesn't appear
     NSDictionary *dictionary = @{@"UserAgent": @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1 Safari/605.1.15"};
@@ -189,13 +191,14 @@ int packageIndex;
     _tableView2.backgroundColor = [UIColor whiteColor];
     [_tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     [_tableView2 setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    _tableView.contentInset = UIEdgeInsetsMake(0,0,70,0);
+    _tableView2.contentInset = UIEdgeInsetsMake(0,0,70,0);
     [self.view addSubview:_tableView];
     [self.view addSubview:_tableView2];
     _tableView.hidden = YES;
     _tableView2.hidden = YES;
     // Search texfield
     _searchField = [[UITextField alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,30)];
-    _searchField.placeholder = @"Search";
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
     UIView *paddingView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 5, 20)];
     _searchField.leftView = paddingView;
@@ -257,6 +260,7 @@ int packageIndex;
 
 - (void)loadStuff {
     // Initialize arrays
+    [self messageWithTitle:@"I GOT POSIX SPAWN OUTPUT" message:[self posixOut]];
     _searchNames = [[NSMutableArray alloc] init];
     _searchDescs = [[NSMutableArray alloc] init];
     _searchDepictions = [[NSMutableArray alloc] init];
@@ -274,14 +278,14 @@ int packageIndex;
     NSString *icon = nil;
     NSString *lastID = nil;
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, "Package:"))  [_packageIDs addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+        if(strstr(str, "Package:") && !strstr(str, "gsc."))  [_packageIDs addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
         if(strstr(str, "Name:")) [_packageNames addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
         if(strstr(str, "Section:")) {
             icon = [NSString stringWithFormat:@"/Applications/IcyInstaller3.app/icons/%@.png",[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Section: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
             if([icon rangeOfString:@" "].location != NSNotFound) icon = [NSString stringWithFormat:@"%@.png",[icon substringToIndex:[icon rangeOfString:@" "].location]];
-            if(![[NSFileManager defaultManager] fileExistsAtPath:icon]) icon = @"/Applications/IcyInstaller3.app/icons/Home.png";
         }
         if(strstr(str, "Icon:")) icon = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Icon: file://" withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+        if(![[NSFileManager defaultManager] fileExistsAtPath:icon]) icon = @"/Applications/IcyInstaller3.app/icons/Unknown.png";
         if(strlen(str) < 2) {
             lastID = [_packageIDs lastObject];
             if(_packageIDs.count > _packageNames.count) [_packageNames addObject:lastID];
@@ -321,6 +325,7 @@ int packageIndex;
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *cellIdentifier = @"cell";
     UITableViewCell *cell = (UITableViewCell *)[theTableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    UIImage *icon = nil;
     if (cell == nil) {
         cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier] autorelease];
         cell.backgroundColor = [UIColor clearColor];
@@ -330,17 +335,18 @@ int packageIndex;
     if(theTableView == _tableView) {
         cell.textLabel.text = [_packageNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [_packageIDs objectAtIndex:indexPath.row];
-        UIImage *icon = [UIImage imageWithContentsOfFile:[_packageIcons objectAtIndex:indexPath.row]];
-        UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
-        [icon drawInRect:CGRectMake(0,0,40,40)];
-        icon = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-        [self makeViewRound:cell.imageView withRadius:10];
-        cell.imageView.image = icon;
+        icon = [UIImage imageWithContentsOfFile:[_packageIcons objectAtIndex:indexPath.row]];
     } else if(theTableView == _tableView2) {
         cell.textLabel.text = [_searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [_searchDescs objectAtIndex:indexPath.row];
     } else cell.textLabel.text = @"Some stupid error happened";
+    if(icon == nil) return cell;
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
+    [icon drawInRect:CGRectMake(0,0,40,40)];
+    icon = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    [self makeViewRound:cell.imageView withRadius:10];
+    cell.imageView.image = icon;
     return cell;
 }
 
@@ -405,14 +411,14 @@ int removeIndex;
     more.titleLabel.textColor = [[UIColor orangeColor] colorWithAlphaComponent:0.5];
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:more];
-    NSString *searchString = [NSString stringWithFormat:@"Package: %@",[_packageIDs objectAtIndex:indexPath.row]];
+    NSString *searchString = [NSString stringWithFormat:@"Package: %@\n",[_packageIDs objectAtIndex:indexPath.row]];
     NSString *info = @"";
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
     BOOL shouldWrite = NO;
     const char *search = [searchString UTF8String];
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, search)) shouldWrite = YES;
+        if(strcmp(str, search) == 0) shouldWrite = YES;
         if(strlen(str) < 2 && shouldWrite) break;
         if(shouldWrite && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:") && !strstr(str, "Conflicts:") && !strstr(str, "Depends:")) info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
         if(shouldWrite && strstr(str, "Depiction:")) {
@@ -787,7 +793,8 @@ int bunzip_one(const char file[999], const char output[999]) {
     _tableView.hidden = YES;
     _tableView2.hidden = NO;
     _searchField.hidden = NO;
-    if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor darkTextColor]}];
+    if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor grayColor]}];
+    else _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor orangeColor]}];
     [self.view bringSubviewToFront:_navigationView];
 }
 - (void)manageAction {
@@ -888,6 +895,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     [_depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:depictionString]]];
     _depictionWebView.hidden = NO;
     [self.view bringSubviewToFront:_depictionWebView];
+    [self.view bringSubviewToFront:_navigationView];
 }
 
 #pragma mark - UI Orientation methods
@@ -1016,6 +1024,18 @@ int bunzip_one(const char file[999], const char output[999]) {
     hostinfo = gethostbyname (hostname);
     if (hostinfo == NULL) return NO;
     else return YES;
+}
+
+- (NSString *)posixOut {
+    int ret;
+    pid_t child_pid;
+    posix_spawn_file_actions_t child_fd_actions;
+    if ((ret = posix_spawn_file_actions_init (&child_fd_actions))) return @"posix_spawn_file_actions_init";
+    if ((ret = posix_spawn_file_actions_addopen (&child_fd_actions, 1, "/var/mobile/Media/Icy/out.txt", O_WRONLY | O_CREAT | O_TRUNC, 0777))) return @"posix_spawn_file_actions_addopen error";
+    if ((ret = posix_spawn_file_actions_adddup2 (&child_fd_actions, 1, 2))) return @"posix_spawn_file_actions_adddup2 error";
+    const char *argv[] = {"echo", "lol", NULL};
+    if ((ret = posix_spawnp (&child_pid, "/bin/echo", &child_fd_actions, NULL, (char* const*)argv, NULL))) return @"Posix spawn error";
+    [self messageWithTitle:@"S" message:[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/out.txt" encoding:NSUTF8StringEncoding error:nil]];s
 }
 
 @end
