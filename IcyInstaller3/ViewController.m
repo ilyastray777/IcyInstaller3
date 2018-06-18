@@ -11,9 +11,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <bzlib.h>
-#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include "NSTask.h"
+#import <dlfcn.h>
+#import <mach/port.h>
+#import <mach/kern_return.h>
+#import <sys/utsname.h>
 #import "ViewController.h"
 
 @interface ViewController ()
@@ -62,6 +67,8 @@
 @property (nonatomic) NSUInteger oldApplications;
 @property (nonatomic) NSUInteger oldTweaks;
 
+// Device info
+@property (nonatomic) NSString *deviceModel;
 @end
 #define coolerBlueColor [UIColor colorWithRed:0.00 green:0.52 blue:1.00 alpha:1.0];
 BOOL darkMode = NO;
@@ -69,6 +76,16 @@ int packageIndex;
 @implementation ViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
+    // Get device model
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    _deviceModel = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+    // Initialize arrays
+    _searchNames = [[NSMutableArray alloc] init];
+    _searchDescs = [[NSMutableArray alloc] init];
+    _searchDepictions = [[NSMutableArray alloc] init];
+    _searchFilenames = [[NSMutableArray alloc] init];
+    _packageIcons = [[NSMutableArray alloc] init];
     // Get arrays needed for reload
     _oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
     _oldTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil].count;
@@ -97,22 +114,23 @@ int packageIndex;
     NSDateComponents *components = [calendar components:NSCalendarUnitWeekday | NSCalendarUnitDay | NSCalendarUnitMonth fromDate:[NSDate date]];
     NSArray *weekdays = @[@"Sunday", @"Monday", @"Tuesday", @"Wednesday", @"Thursday", @"Friday", @"Saturday"];
     NSArray *months = @[@"January", @"February", @"March", @"April", @"May", @"June", @"July", @"August", @"September", @"October", @"November", @"December"];
-    _dateLabel.text = [[NSString stringWithFormat:@"%@, %@ %zd",[weekdays objectAtIndex:[components weekday] - 1],[months objectAtIndex:[components month] - 1],[components day]] uppercaseString];
+    _dateLabel.text = [[NSString stringWithFormat:@"%@, %@ %ld",[weekdays objectAtIndex:[components weekday] - 1],[months objectAtIndex:[components month] - 1],[components day]] uppercaseString];
     _dateLabel.textColor = [UIColor grayColor];
     [_dateLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [self.view addSubview:_dateLabel];
     // The homepage webview, temporair and toreplace with something native like the AppStore homepage
     _welcomeWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
     [_welcomeWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://artikus.pe.hu/Icy.html"]]];
+    _welcomeWebView.scrollView.contentInset = UIEdgeInsetsMake(0,0,60,0);
     [self.view addSubview:_welcomeWebView];
     // The depiction webview
-    _depictionWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,120,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 180)];
+    _depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
+    _depictionWebView.scrollView.contentInset = UIEdgeInsetsMake(0,0,60,0);
     [self.view addSubview:_depictionWebView];
     _depictionWebView.hidden = YES;
     // The package webview
-    _packageWebView = [[UIWebView alloc]initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220)];
+    _packageWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220)];
     [self.view addSubview:_packageWebView];
-    _packageWebView.hidden = YES;
     _packageWebView.hidden = YES;
     // Change the user agent to a desktop one, so when we view depictions "Open in Cydia" doesn't appear
     NSDictionary *dictionary = @{@"UserAgent": @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1 Safari/605.1.15"};
@@ -189,13 +207,14 @@ int packageIndex;
     _tableView2.backgroundColor = [UIColor whiteColor];
     [_tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     [_tableView2 setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    _tableView.contentInset = UIEdgeInsetsMake(0,0,70,0);
+    _tableView2.contentInset = UIEdgeInsetsMake(0,0,70,0);
     [self.view addSubview:_tableView];
     [self.view addSubview:_tableView2];
     _tableView.hidden = YES;
     _tableView2.hidden = YES;
     // Search texfield
     _searchField = [[UITextField alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,30)];
-    _searchField.placeholder = @"Search";
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
     UIView *paddingView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 5, 20)];
     _searchField.leftView = paddingView;
@@ -247,25 +266,20 @@ int packageIndex;
     _progressView.progress = 0;
     [self.view addSubview:_progressView];
     if(darkMode) [self switchToDarkMode];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 1 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [self loadStuff];
-        freopen([@"/var/mobile/Media/Icy/log.txt" cStringUsingEncoding:NSASCIIStringEncoding],"a+",stderr);
     });
 }
 
 #pragma mark - Loading methods
 
 - (void)loadStuff {
-    // Initialize arrays
-    _searchNames = [[NSMutableArray alloc] init];
-    _searchDescs = [[NSMutableArray alloc] init];
-    _searchDepictions = [[NSMutableArray alloc] init];
-    _searchFilenames = [[NSMutableArray alloc] init];
-    _packageIcons = [[NSMutableArray alloc] init];
     BOOL isDirectory;
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
+    // Redirect log to a file
+    freopen([@"/var/mobile/Media/Icy/log.txt" cStringUsingEncoding:NSASCIIStringEncoding],"a+",stderr);
     // Get package list and put to table view
     _packageNames = [[NSMutableArray alloc] init];
     _packageIDs = [[NSMutableArray alloc] init];
@@ -274,14 +288,14 @@ int packageIndex;
     NSString *icon = nil;
     NSString *lastID = nil;
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, "Package:"))  [_packageIDs addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+        if(strstr(str, "Package:") && !strstr(str, "gsc."))  [_packageIDs addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
         if(strstr(str, "Name:")) [_packageNames addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
         if(strstr(str, "Section:")) {
             icon = [NSString stringWithFormat:@"/Applications/IcyInstaller3.app/icons/%@.png",[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Section: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
             if([icon rangeOfString:@" "].location != NSNotFound) icon = [NSString stringWithFormat:@"%@.png",[icon substringToIndex:[icon rangeOfString:@" "].location]];
-            if(![[NSFileManager defaultManager] fileExistsAtPath:icon]) icon = @"/Applications/IcyInstaller3.app/icons/Home.png";
         }
         if(strstr(str, "Icon:")) icon = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Icon: file://" withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+        if(![[NSFileManager defaultManager] fileExistsAtPath:icon]) icon = @"/Applications/IcyInstaller3.app/icons/Unknown.png";
         if(strlen(str) < 2) {
             lastID = [_packageIDs lastObject];
             if(_packageIDs.count > _packageNames.count) [_packageNames addObject:lastID];
@@ -321,6 +335,7 @@ int packageIndex;
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *cellIdentifier = @"cell";
     UITableViewCell *cell = (UITableViewCell *)[theTableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    UIImage *icon = nil;
     if (cell == nil) {
         cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier] autorelease];
         cell.backgroundColor = [UIColor clearColor];
@@ -330,21 +345,21 @@ int packageIndex;
     if(theTableView == _tableView) {
         cell.textLabel.text = [_packageNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [_packageIDs objectAtIndex:indexPath.row];
-        UIImage *icon = [UIImage imageWithContentsOfFile:[_packageIcons objectAtIndex:indexPath.row]];
-        UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
-        [icon drawInRect:CGRectMake(0,0,40,40)];
-        icon = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-        [self makeViewRound:cell.imageView withRadius:10];
-        cell.imageView.image = icon;
+        icon = [UIImage imageWithContentsOfFile:[_packageIcons objectAtIndex:indexPath.row]];
     } else if(theTableView == _tableView2) {
         cell.textLabel.text = [_searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [_searchDescs objectAtIndex:indexPath.row];
     } else cell.textLabel.text = @"Some stupid error happened";
+    if(icon == nil) return cell;
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
+    [icon drawInRect:CGRectMake(0,0,40,40)];
+    icon = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    [self makeViewRound:cell.imageView withRadius:10];
+    cell.imageView.image = icon;
     return cell;
 }
 
-NSString *packageName;
 - (void)tableView:(UITableView *)theTableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if(theTableView == _tableView) [self packageInfoWithIndexPath:indexPath];
     else if(theTableView == _tableView2) [self showDepictionForPackageWithIndexPath:indexPath];
@@ -405,14 +420,14 @@ int removeIndex;
     more.titleLabel.textColor = [[UIColor orangeColor] colorWithAlphaComponent:0.5];
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:more];
-    NSString *searchString = [NSString stringWithFormat:@"Package: %@",[_packageIDs objectAtIndex:indexPath.row]];
+    NSString *searchString = [NSString stringWithFormat:@"Package: %@\n",[_packageIDs objectAtIndex:indexPath.row]];
     NSString *info = @"";
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
     BOOL shouldWrite = NO;
     const char *search = [searchString UTF8String];
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, search)) shouldWrite = YES;
+        if(strcmp(str, search) == 0) shouldWrite = YES;
         if(strlen(str) < 2 && shouldWrite) break;
         if(shouldWrite && !strstr(str, "Priority:") && !strstr(str, "Status:") && !strstr(str, "Installed-Size:") && !strstr(str, "Maintainer:") && !strstr(str, "Architecture:") && !strstr(str, "Replaces:") && !strstr(str, "Provides:") && !strstr(str, "Homepage:") && !strstr(str, "Depiction:") && !strstr(str, "Depiction:") && !strstr(str, "Sponsor:") && !strstr(str, "dev:") && !strstr(str, "Tag:") && !strstr(str, "Icon:") && !strstr(str, "Website:") && !strstr(str, "Conflicts:") && !strstr(str, "Depends:")) info = [NSString stringWithFormat:@"%@%@",info,[NSString stringWithCString:str encoding:NSASCIIStringEncoding]];
         if(shouldWrite && strstr(str, "Depiction:")) {
@@ -490,7 +505,7 @@ UIAlertView *respringAlert;
 }
 
 - (void)uicache {
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Running uicache" message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading caches" message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
     [alert show];
     // Run uicache
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -509,13 +524,16 @@ UIAlertView *respringAlert;
         for (id object in dependencies) [self removePackageWithBundleID:object];
         [self reload];
     }
-    if(alertView == respringAlert && buttonIndex != [alertView cancelButtonIndex]) {
+    else if(alertView == respringAlert && buttonIndex != [alertView cancelButtonIndex]) {
         pid_t pid;
         int status;
         const char *argv[] = {"killall", "-9", "SpringBoard", NULL};
         posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char**)argv, NULL);
         waitpid(pid, &status, 0);
     }
+    else if(alertView == manageAlert && buttonIndex == 1) [self refreshSources];
+    else if(alertView == manageAlert && buttonIndex == 2) [self updatePackages];
+    else if(alertView == manageAlert && buttonIndex == 1) [self addSource];
 }
 
 - (NSString *)packageNameForBundleID:(NSString *)bundleID {
@@ -542,89 +560,42 @@ UIAlertView *respringAlert;
 
 #pragma mark - Manage methods
 
-UIView *manageView;
-UIView *darkenView;
+UIAlertView *manageAlert;
 - (void)manage {
-    darkenView = [[UIView alloc] initWithFrame:[UIScreen mainScreen].bounds];
-    darkenView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.3];
-    [self.view addSubview:darkenView];
-    manageView = [[UIView alloc] initWithFrame:CGRectMake(30,-230,[UIScreen mainScreen].bounds.size.width - 60,230)];
-    if(darkMode) manageView.backgroundColor = [UIColor blackColor];
-    else manageView.backgroundColor = [UIColor whiteColor];
-    [self makeViewRound:manageView withRadius:10];
-    [self.view addSubview:manageView];
-    UIButton *refresh = [[UIButton alloc] initWithFrame:CGRectMake(20, 20, manageView.bounds.size.width - 40, 50)];
-    [self makeViewRound:refresh withRadius:10];
-    refresh.backgroundColor = [[UIColor greenColor] colorWithAlphaComponent:0.1];
-    [refresh setTitle:@"Refresh sources" forState:UIControlStateNormal];
-    [refresh setTitleColor:[[UIColor greenColor] colorWithAlphaComponent:0.5] forState:UIControlStateNormal];
-    [refresh.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [refresh addTarget:self action:@selector(refreshSources) forControlEvents:UIControlEventTouchUpInside];
-    [manageView addSubview:refresh];
-    UIButton *update = [[UIButton alloc] initWithFrame:CGRectMake(20, 90, manageView.bounds.size.width - 40, 50)];
-    [self makeViewRound:update withRadius:10];
-    update.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
-    [update setTitle:@"Scan updates" forState:UIControlStateNormal];
-    [update setTitleColor:[[UIColor blueColor] colorWithAlphaComponent:0.5] forState:UIControlStateNormal];
-    [update.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [update addTarget:self action:@selector(updatePackages) forControlEvents:UIControlEventTouchUpInside];
-    [manageView addSubview:update];
-    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20, 160, manageView.bounds.size.width - 40, 50)];
-    [self makeViewRound:dismiss withRadius:10];
-    dismiss.backgroundColor = [[UIColor redColor] colorWithAlphaComponent:0.1];
-    [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
-    [dismiss setTitleColor:[[UIColor redColor] colorWithAlphaComponent:0.5] forState:UIControlStateNormal];
-    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [dismiss addTarget:self action:@selector(dismissManage) forControlEvents:UIControlEventTouchUpInside];
-    [manageView addSubview:dismiss];
-    [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        manageView.frame = CGRectMake(30,[UIScreen mainScreen].bounds.size.height / 2 - 115,[UIScreen mainScreen].bounds.size.width - 60,230);
-    } completion:nil];
-}
-
-- (void)dismissManage {
-    [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        manageView.frame = CGRectMake(30,-230,[UIScreen mainScreen].bounds.size.width - 60,230);
-    } completion:^(BOOL finished) {
-        [UIView animateWithDuration:.3 animations:^ {
-            [darkenView setAlpha:0];
-        }];
-    }];
+    manageAlert = [[UIAlertView alloc] initWithTitle:@"Manage" message:nil delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:@"Reload sources", @"Scan updates", @"Add source", nil];
+    [manageAlert show];
+    [manageAlert release];
 }
 
 - (void)refreshSources {
     // BigBoss
-    NSString *bigboss = @"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2";
-     NSURL *bigbossURL = [NSURL URLWithString:bigboss];
-     NSData *bigbossURLData = [NSData dataWithContentsOfURL:bigbossURL];
-     if (bigbossURLData) [bigbossURLData writeToFile:@"/var/mobile/Media/Icy/Repos/BigBoss.bz2" atomically:YES];
-     // ModMyi
-     NSString *modmyi = @"http://apt.modmyi.com/dists/stable/main/binary-iphoneos-arm/Packages.bz2";
-     NSURL *modmyiURL = [NSURL URLWithString:modmyi];
-     NSData *modmyiURLData = [NSData dataWithContentsOfURL:modmyiURL];
-     if (modmyiURLData) {
-     [modmyiURLData writeToFile:@"/var/mobile/Media/Icy/Repos/ModMyi.bz2" atomically:YES];
-     }
-     // Zodttd and MacCiti
-     NSString *zodttd = @"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2";
-     NSURL *zodttdURL = [NSURL URLWithString:zodttd];
-     NSData *zodttdURLData = [NSData dataWithContentsOfURL:zodttdURL];
-     if (zodttdURLData) {
-     [zodttdURLData writeToFile:@"/var/mobile/Media/Icy/Repos/Zodttd.bz2" atomically:YES];
-     }
-     // Saurik's repo
-     NSString *saurik = @"http://apt.saurik.com/cydia/Packages.bz2";
-     NSURL *saurikURL = [NSURL URLWithString:saurik];
-     NSData *saurikURLData = [NSData dataWithContentsOfURL:saurikURL];
-     if (saurikURLData) [saurikURLData writeToFile:@"/var/mobile/Media/Icy/Repos/Saurik.bz2" atomically:YES];
+    [self downloadWithProgressAndURLString:@"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"Icy/Repos/BigBoss.bz2"];
+    /*NSString *bigboss = @"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2";
+    NSURL *bigbossURL = [NSURL URLWithString:bigboss];
+    NSData *bigbossURLData = [NSData dataWithContentsOfURL:bigbossURL];
+    if (bigbossURLData) [bigbossURLData writeToFile:@"/var/mobile/Media/Icy/Repos/BigBoss.bz2" atomically:YES];
+    // ModMyi
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/ModMyi" isDirectory:nil]) {
+        NSData *modmyiURLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://apt.modmyi.com/dists/stable/main/binary-iphoneos-arm/Packages.bz2"]];
+        if (modmyiURLData) [modmyiURLData writeToFile:@"/var/mobile/Media/Icy/Repos/ModMyi.bz2" atomically:YES];
+    }
+    // Zodttd and MacCiti
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/Zodttd" isDirectory:nil]) {
+        NSData *zodttdURLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2"]];
+        if (zodttdURLData) [zodttdURLData writeToFile:@"/var/mobile/Media/Icy/Repos/Zodttd.bz2" atomically:YES];
+    }
+    // Saurik's repo
+    NSData *saurikURLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://apt.saurik.com/cydia/Packages.bz2"]];
+    if (saurikURLData) [saurikURLData writeToFile:@"/var/mobile/Media/Icy/Repos/Saurik.bz2" atomically:YES];*/
     // Unpack the files
-    bunzip_one("/var/mobile/Media/Icy/Repos/BigBoss.bz2", "/var/mobile/Media/Icy/Repos/BigBoss");
+    /*bunzip_one("/var/mobile/Media/Icy/Repos/BigBoss.bz2", "/var/mobile/Media/Icy/Repos/BigBoss");
     bunzip_one("/var/mobile/Media/Icy/Repos/Zodttd.bz2", "/var/mobile/Media/Icy/Repos/Zodttd");
     bunzip_one("/var/mobile/Media/Icy/Repos/ModMyi.bz2", "/var/mobile/Media/Icy/Repos/ModMyi");
-    bunzip_one("/var/mobile/Media/Icy/Repos/Saurik.bz2", "/var/mobile/Media/Icy/Repos/Saurik");
+    bunzip_one("/var/mobile/Media/Icy/Repos/Saurik.bz2", "/var/mobile/Media/Icy/Repos/Saurik");*/
 }
 
 int bunzip_one(const char file[999], const char output[999]) {
+    if(![[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithCString:file encoding:NSASCIIStringEncoding] isDirectory:nil]) return -1;
     FILE *f = fopen(file, "r+b");
     FILE *outfile = fopen(output, "w");
     fprintf(outfile, "");
@@ -667,6 +638,10 @@ int bunzip_one(const char file[999], const char output[999]) {
     // TODO
 }
 
+- (void)addSource {
+    // TODO
+}
+
 - (void)about {
     if([_aboutButton.currentTitle isEqualToString:@"Dark"]) {
         [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
@@ -680,14 +655,20 @@ int bunzip_one(const char file[999], const char output[999]) {
         _nameLabel.text = @"Getting...";
         [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
-        if([[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Backup.txt"]) [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Backup.txt" error:nil];
-        FILE *file = fopen("/var/lib/dpkg/status", "r");
-        char str[999];
-        while(fgets(str, 999, file) != NULL) {
-            if(strstr(str, "Name:")) [[NSString stringWithFormat:@"%@%@", [[NSString stringWithContentsOfFile:@"/var/mobile/Backup.txt" encoding:NSUTF8StringEncoding error:nil] stringByReplacingOccurrencesOfString:@"(null)" withString:@""], [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""]] writeToFile:@"/var/mobile/Backup.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
-        }
-        fclose(file);
-        [self messageWithTitle:@"Done" message:@"The package backup was saved to /var/mobile/Backup.txt"];
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Backing up..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+        [alert show];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            if([[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Backup.txt"]) [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Backup.txt" error:nil];
+            FILE *file = fopen("/var/lib/dpkg/status", "r");
+            char str[999];
+            while(fgets(str, 999, file) != NULL) {
+                if(strstr(str, "Name:")) [[NSString stringWithFormat:@"%@%@", [[NSString stringWithContentsOfFile:@"/var/mobile/Backup.txt" encoding:NSUTF8StringEncoding error:nil] stringByReplacingOccurrencesOfString:@"(null)" withString:@""], [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""]] writeToFile:@"/var/mobile/Backup.txt" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            }
+            fclose(file);
+            [alert dismissWithClickedButtonIndex:0 animated:YES];
+            [alert release];
+            [self messageWithTitle:@"Done" message:@"The package backup was saved to /var/mobile/Backup.txt"];
+        });
     } else if([_aboutButton.currentTitle isEqualToString:@"Manage"]) [self manage];
     else if([_aboutButton.currentTitle isEqualToString:@"Remove"]) [self removePackageButtonAction];
     else [self messageWithTitle:@"Some random shit happened" message:@"Literally the title."];
@@ -787,7 +768,8 @@ int bunzip_one(const char file[999], const char output[999]) {
     _tableView.hidden = YES;
     _tableView2.hidden = NO;
     _searchField.hidden = NO;
-    if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor darkTextColor]}];
+    if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor grayColor]}];
+    else _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor orangeColor]}];
     [self.view bringSubviewToFront:_navigationView];
 }
 - (void)manageAction {
@@ -888,6 +870,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     [_depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:depictionString]]];
     _depictionWebView.hidden = NO;
     [self.view bringSubviewToFront:_depictionWebView];
+    [self.view bringSubviewToFront:_navigationView];
 }
 
 #pragma mark - UI Orientation methods
@@ -937,11 +920,16 @@ int bunzip_one(const char file[999], const char output[999]) {
 }
 
 #pragma mark - Random backend methods
--(void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
+
+- (void)readYourepo {
+    [self downloadWithProgressAndURLString:@"http://artikushg.yourepo.com/Packages.bz2" saveFilename:@"Icy/packages.bz2"];
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
     self.urlResponse = response;
 }
 
--(void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
     [self.downloadedMutableData appendData:data];
     _progressView.progress = ((100.0/self.urlResponse.expectedContentLength)*self.downloadedMutableData.length)/100;
     if (_progressView.progress == 1) {
@@ -951,22 +939,27 @@ int bunzip_one(const char file[999], const char output[999]) {
     }
 }
 
--(void)connectionDidFinishLoading:(NSURLConnection *)connection {
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
     [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
     if([_filename isEqualToString:@"downloaded.deb"]) {
         [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO];
         [self reload];
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
         _nameLabel.text = @"Done";
-    }
+    } else if([_filename rangeOfString:@".bz2"].location != NSNotFound) for (id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
 }
 
-- (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename1 {
-    _filename = filename1;
-    self.connectionManager = [[NSURLConnection alloc] initWithRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval: 60.0] delegate:self];
+- (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
+    _filename = filename;
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
+    [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
+    [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
+    [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
+    [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    self.connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 }
 
--(NSArray *)outputOfCommand:(NSString *)command withArguments:(NSArray *)args {
+- (NSArray *)outputOfCommand:(NSString *)command withArguments:(NSArray *)args {
     NSArray *array = [[NSArray alloc] init];
     NSTask *task = [[NSTask alloc] init];
     [task setLaunchPath:command];
@@ -1009,13 +1002,31 @@ int bunzip_one(const char file[999], const char output[999]) {
     // Dispose of any resources that can be recreated.
 }
 
--(BOOL)isNetworkAvailable {
+- (BOOL)isNetworkAvailable {
     char *hostname;
     struct hostent *hostinfo;
     hostname = "google.com";
     hostinfo = gethostbyname (hostname);
     if (hostinfo == NULL) return NO;
     else return YES;
+}
+
+/*- (NSString *)posixOut {
+    int ret;
+    pid_t child_pid;
+    posix_spawn_file_actions_t child_fd_actions;
+    if ((ret = posix_spawn_file_actions_init (&child_fd_actions))) return @"posix_spawn_file_actions_init";
+    if ((ret = posix_spawn_file_actions_addopen (&child_fd_actions, 1, "/var/mobile/Media/Icy/out.txt", O_WRONLY | O_CREAT | O_TRUNC, 0777))) return @"posix_spawn_file_actions_addopen error";
+    if ((ret = posix_spawn_file_actions_adddup2 (&child_fd_actions, 1, 2))) return @"posix_spawn_file_actions_adddup2 error";
+    const char *argv[] = {"echo", "lol", NULL};
+    if ((ret = posix_spawnp (&child_pid, "/bin/echo", &child_fd_actions, NULL, (char* const*)argv, NULL))) return @"Posix spawn error";
+    [self messageWithTitle:@"S" message:[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/out.txt" encoding:NSUTF8StringEncoding error:nil]];s
+}*/
+
+OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
+- (NSString *)uniqueDeviceID {
+    CFStringRef udid = MGCopyAnswer(CFSTR("UniqueDeviceID"));
+    return (NSString *)udid;
 }
 
 @end
