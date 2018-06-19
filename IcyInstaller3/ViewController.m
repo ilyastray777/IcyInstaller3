@@ -534,6 +534,7 @@ UIAlertView *respringAlert;
     else if(alertView == manageAlert && buttonIndex == 1) [self refreshSources];
     else if(alertView == manageAlert && buttonIndex == 2) [self updatePackages];
     else if(alertView == manageAlert && buttonIndex == 1) [self addSource];
+    else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) [[NSString stringWithFormat:@"%@%@\n",[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil],[alertView textFieldAtIndex:0].text] writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
 
 - (NSString *)packageNameForBundleID:(NSString *)bundleID {
@@ -568,30 +569,21 @@ UIAlertView *manageAlert;
 }
 
 - (void)refreshSources {
-    // BigBoss
-    [self downloadWithProgressAndURLString:@"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"Icy/Repos/BigBoss.bz2"];
-    /*NSString *bigboss = @"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2";
-    NSURL *bigbossURL = [NSURL URLWithString:bigboss];
-    NSData *bigbossURLData = [NSData dataWithContentsOfURL:bigbossURL];
-    if (bigbossURLData) [bigbossURLData writeToFile:@"/var/mobile/Media/Icy/Repos/BigBoss.bz2" atomically:YES];
-    // ModMyi
-    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/ModMyi" isDirectory:nil]) {
-        NSData *modmyiURLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://apt.modmyi.com/dists/stable/main/binary-iphoneos-arm/Packages.bz2"]];
-        if (modmyiURLData) [modmyiURLData writeToFile:@"/var/mobile/Media/Icy/Repos/ModMyi.bz2" atomically:YES];
-    }
-    // Zodttd and MacCiti
-    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/Zodttd" isDirectory:nil]) {
-        NSData *zodttdURLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2"]];
-        if (zodttdURLData) [zodttdURLData writeToFile:@"/var/mobile/Media/Icy/Repos/Zodttd.bz2" atomically:YES];
-    }
-    // Saurik's repo
-    NSData *saurikURLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://apt.saurik.com/cydia/Packages.bz2"]];
-    if (saurikURLData) [saurikURLData writeToFile:@"/var/mobile/Media/Icy/Repos/Saurik.bz2" atomically:YES];*/
-    // Unpack the files
-    /*bunzip_one("/var/mobile/Media/Icy/Repos/BigBoss.bz2", "/var/mobile/Media/Icy/Repos/BigBoss");
-    bunzip_one("/var/mobile/Media/Icy/Repos/Zodttd.bz2", "/var/mobile/Media/Icy/Repos/Zodttd");
-    bunzip_one("/var/mobile/Media/Icy/Repos/ModMyi.bz2", "/var/mobile/Media/Icy/Repos/ModMyi");
-    bunzip_one("/var/mobile/Media/Icy/Repos/Saurik.bz2", "/var/mobile/Media/Icy/Repos/Saurik");*/
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading sources..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list"]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        // BigBoss
+        [self downloadRepoFromURLString:@"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"BigBoss"];
+        // ModMyi
+        if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/ModMyi" isDirectory:nil]) [self downloadRepoFromURLString:@"http://apt.modmyi.com/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"ModMyi"];
+        // Zodttd and MacCiti
+        if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/Zodttd" isDirectory:nil]) [self downloadRepoFromURLString:@"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"Zodttd"];
+        // Saurik's repo
+        [self downloadRepoFromURLString:@"http://apt.saurik.com/cydia/Packages.bz2" saveFilename:@"Saurik"];
+        [alert dismissWithClickedButtonIndex:0 animated:YES];
+        [alert release];
+        for (id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
+    });
 }
 
 int bunzip_one(const char file[999], const char output[999]) {
@@ -638,8 +630,11 @@ int bunzip_one(const char file[999], const char output[999]) {
     // TODO
 }
 
+UIAlertView *addSourceAlert;
 - (void)addSource {
-    // TODO
+    addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
+    addSourceAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
+    [addSourceAlert show];
 }
 
 - (void)about {
@@ -959,6 +954,11 @@ int bunzip_one(const char file[999], const char output[999]) {
     self.connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 }
 
+- (void)downloadRepoFromURLString:(NSString *)urlString saveFilename:(NSString *)filename {
+    NSData *URLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:urlString]];
+    if (URLData) [URLData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@.bz2",filename] atomically:YES];
+}
+
 - (NSArray *)outputOfCommand:(NSString *)command withArguments:(NSArray *)args {
     NSArray *array = [[NSArray alloc] init];
     NSTask *task = [[NSTask alloc] init];
@@ -1020,7 +1020,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     if ((ret = posix_spawn_file_actions_adddup2 (&child_fd_actions, 1, 2))) return @"posix_spawn_file_actions_adddup2 error";
     const char *argv[] = {"echo", "lol", NULL};
     if ((ret = posix_spawnp (&child_pid, "/bin/echo", &child_fd_actions, NULL, (char* const*)argv, NULL))) return @"Posix spawn error";
-    [self messageWithTitle:@"S" message:[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/out.txt" encoding:NSUTF8StringEncoding error:nil]];s
+    [self messageWithTitle:@"S" message:[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/out.txt" encoding:NSUTF8StringEncoding error:nil]];
 }*/
 
 OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
