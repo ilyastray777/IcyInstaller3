@@ -114,7 +114,7 @@ int packageIndex;
     NSDateComponents *components = [calendar components:NSCalendarUnitWeekday | NSCalendarUnitDay | NSCalendarUnitMonth fromDate:[NSDate date]];
     NSArray *weekdays = @[@"Sunday", @"Monday", @"Tuesday", @"Wednesday", @"Thursday", @"Friday", @"Saturday"];
     NSArray *months = @[@"January", @"February", @"March", @"April", @"May", @"June", @"July", @"August", @"September", @"October", @"November", @"December"];
-    _dateLabel.text = [[NSString stringWithFormat:@"%@, %@ %ld",[weekdays objectAtIndex:[components weekday] - 1],[months objectAtIndex:[components month] - 1],[components day]] uppercaseString];
+    _dateLabel.text = [[NSString stringWithFormat:@"%@, %@ %zd",[weekdays objectAtIndex:[components weekday] - 1],[months objectAtIndex:[components month] - 1],[components day]] uppercaseString];
     _dateLabel.textColor = [UIColor grayColor];
     [_dateLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [self.view addSubview:_dateLabel];
@@ -274,16 +274,6 @@ int packageIndex;
 #pragma mark - Loading methods
 
 - (void)loadStuff {
-<<<<<<< HEAD
-=======
-    // Initialize arrays
-    [self messageWithTitle:@"I GOT POSIX SPAWN OUTPUT" message:[self posixOut]];
-    _searchNames = [[NSMutableArray alloc] init];
-    _searchDescs = [[NSMutableArray alloc] init];
-    _searchDepictions = [[NSMutableArray alloc] init];
-    _searchFilenames = [[NSMutableArray alloc] init];
-    _packageIcons = [[NSMutableArray alloc] init];
->>>>>>> 38eb216926d0ec48e117007657d788c8a51c9063
     BOOL isDirectory;
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
@@ -1021,11 +1011,7 @@ int bunzip_one(const char file[999], const char output[999]) {
     else return YES;
 }
 
-<<<<<<< HEAD
 /*- (NSString *)posixOut {
-=======
-- (NSString *)posixOut {
->>>>>>> 38eb216926d0ec48e117007657d788c8a51c9063
     int ret;
     pid_t child_pid;
     posix_spawn_file_actions_t child_fd_actions;
@@ -1035,15 +1021,12 @@ int bunzip_one(const char file[999], const char output[999]) {
     const char *argv[] = {"echo", "lol", NULL};
     if ((ret = posix_spawnp (&child_pid, "/bin/echo", &child_fd_actions, NULL, (char* const*)argv, NULL))) return @"Posix spawn error";
     [self messageWithTitle:@"S" message:[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/out.txt" encoding:NSUTF8StringEncoding error:nil]];s
-<<<<<<< HEAD
 }*/
 
 OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
 - (NSString *)uniqueDeviceID {
     CFStringRef udid = MGCopyAnswer(CFSTR("UniqueDeviceID"));
     return (NSString *)udid;
-=======
->>>>>>> 38eb216926d0ec48e117007657d788c8a51c9063
 }
 
 @end
