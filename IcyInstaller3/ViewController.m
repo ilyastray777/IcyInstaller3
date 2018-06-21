@@ -68,10 +68,13 @@
 @property (nonatomic) NSUInteger oldApplications;
 @property (nonatomic) NSUInteger oldTweaks;
 
+<<<<<<< HEAD
 // Other random arrays
 @property (strong, nonatomic) NSMutableArray *sources;
 @property (strong, nonatomic) NSMutableArray *sourceLinks;
 
+=======
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
 // Device info
 @property (nonatomic) NSString *deviceModel;
 @end
@@ -287,6 +290,7 @@ int packageIndex;
 #pragma mark - Loading methods
 
 - (void)loadStuff {
+<<<<<<< HEAD
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
@@ -296,6 +300,12 @@ int packageIndex;
     sources = [sources substringToIndex:sources.length - 1];
     _sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
     _sources = [[NSMutableArray alloc] init];
+=======
+    BOOL isDirectory;
+    // Check for needed directories
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
     // Redirect log to a file
     freopen([@"/var/mobile/Media/Icy/log.txt" cStringUsingEncoding:NSASCIIStringEncoding],"a+",stderr);
     // Get package list and put to table view
@@ -548,6 +558,7 @@ UIAlertView *respringAlert;
     }
     else if(alertView == manageAlert && buttonIndex == 1) [self refreshSources];
     else if(alertView == manageAlert && buttonIndex == 2) [self updatePackages];
+<<<<<<< HEAD
     else if(alertView == manageAlert && buttonIndex == 3) [self addSource];
     else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) {
         if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [@"" writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
@@ -555,6 +566,10 @@ UIAlertView *respringAlert;
         [fileHandle seekToEndOfFile];
         [fileHandle writeData:[[NSString stringWithFormat:@"http://%@\n",[alertView textFieldAtIndex:0].text] dataUsingEncoding:NSUTF8StringEncoding]];
     }
+=======
+    else if(alertView == manageAlert && buttonIndex == 1) [self addSource];
+    else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) [[NSString stringWithFormat:@"%@%@\n",[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil],[alertView textFieldAtIndex:0].text] writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
 }
 
 - (NSString *)packageNameForBundleID:(NSString *)bundleID {
@@ -590,7 +605,10 @@ UIAlertView *manageAlert;
 
 - (void)refreshSources {
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading sources..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+<<<<<<< HEAD
     [alert show];
+=======
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list"]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         // BigBoss
@@ -601,6 +619,7 @@ UIAlertView *manageAlert;
         if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/Zodttd" isDirectory:nil]) [self downloadRepoFromURLString:@"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"Zodttd"];
         // Saurik's repo
         [self downloadRepoFromURLString:@"http://apt.saurik.com/cydia/Packages.bz2" saveFilename:@"Saurik"];
+<<<<<<< HEAD
         // Third party repos
         for(id object in _sourceLinks) {
             NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:5.0];
@@ -621,6 +640,12 @@ UIAlertView *manageAlert;
         [alert release];
     });
         [_tableView3 reloadData];
+=======
+        [alert dismissWithClickedButtonIndex:0 animated:YES];
+        [alert release];
+        for (id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
+    });
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
 }
 
 int bunzip_one(const char file[999], const char output[999]) {
@@ -669,7 +694,11 @@ int bunzip_one(const char file[999], const char output[999]) {
 
 UIAlertView *addSourceAlert;
 - (void)addSource {
+<<<<<<< HEAD
     addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source WITHOUT including \"http(s)://\" or \"www\"" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
+=======
+    addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
     addSourceAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
     [addSourceAlert show];
 }
@@ -983,6 +1012,7 @@ UIAlertView *addSourceAlert;
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
         _nameLabel.text = @"Done";
     } else if([_filename rangeOfString:@".bz2"].location != NSNotFound) for (id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
+<<<<<<< HEAD
 }
 
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
@@ -1010,6 +1040,25 @@ UIAlertView *addSourceAlert;
     [task resume];
 }
 
+=======
+}
+
+- (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
+    _filename = filename;
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
+    [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
+    [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
+    [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
+    [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    self.connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+}
+
+- (void)downloadRepoFromURLString:(NSString *)urlString saveFilename:(NSString *)filename {
+    NSData *URLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:urlString]];
+    if (URLData) [URLData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@.bz2",filename] atomically:YES];
+}
+
+>>>>>>> 903f6a3d7df61f1d980037348c2831acee27ac11
 - (NSArray *)outputOfCommand:(NSString *)command withArguments:(NSArray *)args {
     NSArray *array = [[NSArray alloc] init];
     NSTask *task = [[NSTask alloc] init];
