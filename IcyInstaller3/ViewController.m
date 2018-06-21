@@ -47,6 +47,7 @@
 @property (strong, nonatomic) UITextField *searchField;
 @property (strong, nonatomic) UITableView *tableView;
 @property (strong, nonatomic) UITableView *tableView2;
+@property (strong, nonatomic) UITableView *tableView3;
 @property (strong, nonatomic) UIView *loadingView;
 @property (strong, nonatomic) UITextView *loadingArea;
 @property (strong, nonatomic) UIProgressView *progressView;
@@ -66,6 +67,10 @@
 // Reload needed arrays
 @property (nonatomic) NSUInteger oldApplications;
 @property (nonatomic) NSUInteger oldTweaks;
+
+// Other random arrays
+@property (strong, nonatomic) NSMutableArray *sources;
+@property (strong, nonatomic) NSMutableArray *sourceLinks;
 
 // Device info
 @property (nonatomic) NSString *deviceModel;
@@ -201,18 +206,26 @@ int packageIndex;
     _tableView.delegate = self;
     _tableView.dataSource = self;
     _tableView.backgroundColor = [UIColor whiteColor];
+    [_tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    _tableView.contentInset = UIEdgeInsetsMake(0,0,70,0);
+    [self.view addSubview:_tableView];
+    _tableView.hidden = YES;
     _tableView2 = [[UITableView alloc] initWithFrame:CGRectMake(13,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
     _tableView2.delegate = self;
     _tableView2.dataSource = self;
     _tableView2.backgroundColor = [UIColor whiteColor];
-    [_tableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     [_tableView2 setSeparatorStyle:UITableViewCellSeparatorStyleNone];
-    _tableView.contentInset = UIEdgeInsetsMake(0,0,70,0);
     _tableView2.contentInset = UIEdgeInsetsMake(0,0,70,0);
-    [self.view addSubview:_tableView];
     [self.view addSubview:_tableView2];
-    _tableView.hidden = YES;
     _tableView2.hidden = YES;
+    _tableView3 = [[UITableView alloc] initWithFrame:CGRectMake(13,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
+    _tableView3.delegate = self;
+    _tableView3.dataSource = self;
+    _tableView3.backgroundColor = [UIColor whiteColor];
+    [_tableView3 setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    _tableView3.contentInset = UIEdgeInsetsMake(0,0,70,0);
+    [self.view addSubview:_tableView3];
+    _tableView3.hidden = YES;
     // Search texfield
     _searchField = [[UITextField alloc] initWithFrame:CGRectMake(20,10,[UIScreen mainScreen].bounds.size.width - 40,30)];
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
@@ -274,10 +287,15 @@ int packageIndex;
 #pragma mark - Loading methods
 
 - (void)loadStuff {
-    BOOL isDirectory;
     // Check for needed directories
-    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
-    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
+    // Get third party source list
+    NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
+    sources = [sources substringToIndex:sources.length - 1];
+    _sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+    _sources = [[NSMutableArray alloc] init];
     // Redirect log to a file
     freopen([@"/var/mobile/Media/Icy/log.txt" cStringUsingEncoding:NSASCIIStringEncoding],"a+",stderr);
     // Get package list and put to table view
@@ -323,13 +341,9 @@ int packageIndex;
 }
 
 - (NSInteger)tableView:(UITableView *)theTableView numberOfRowsInSection:(NSInteger)section {
-    if(theTableView == _tableView) {
-        return _packageNames.count;
-    } else if(theTableView == _tableView2) {
-        return _searchNames.count;
-    } else {
-        return 0;
-    }
+    if(theTableView == _tableView) return _packageNames.count;
+    else if(theTableView == _tableView2) return _searchNames.count;
+    else return 0;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -349,7 +363,8 @@ int packageIndex;
     } else if(theTableView == _tableView2) {
         cell.textLabel.text = [_searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [_searchDescs objectAtIndex:indexPath.row];
-    } else cell.textLabel.text = @"Some stupid error happened";
+    } else if(theTableView == _tableView3) cell.textLabel.text = [_sources objectAtIndex:indexPath.row];
+    else cell.textLabel.text = @"Some stupid error happened";
     if(icon == nil) return cell;
     UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
     [icon drawInRect:CGRectMake(0,0,40,40)];
@@ -533,8 +548,13 @@ UIAlertView *respringAlert;
     }
     else if(alertView == manageAlert && buttonIndex == 1) [self refreshSources];
     else if(alertView == manageAlert && buttonIndex == 2) [self updatePackages];
-    else if(alertView == manageAlert && buttonIndex == 1) [self addSource];
-    else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) [[NSString stringWithFormat:@"%@%@\n",[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil],[alertView textFieldAtIndex:0].text] writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    else if(alertView == manageAlert && buttonIndex == 3) [self addSource];
+    else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) {
+        if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [@"" writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:@"/var/mobile/Media/Icy/sources.list"];
+        [fileHandle seekToEndOfFile];
+        [fileHandle writeData:[[NSString stringWithFormat:@"http://%@\n",[alertView textFieldAtIndex:0].text] dataUsingEncoding:NSUTF8StringEncoding]];
+    }
 }
 
 - (NSString *)packageNameForBundleID:(NSString *)bundleID {
@@ -570,6 +590,7 @@ UIAlertView *manageAlert;
 
 - (void)refreshSources {
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading sources..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+    [alert show];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list"]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         // BigBoss
@@ -580,10 +601,26 @@ UIAlertView *manageAlert;
         if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/Zodttd" isDirectory:nil]) [self downloadRepoFromURLString:@"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2" saveFilename:@"Zodttd"];
         // Saurik's repo
         [self downloadRepoFromURLString:@"http://apt.saurik.com/cydia/Packages.bz2" saveFilename:@"Saurik"];
+        // Third party repos
+        for(id object in _sourceLinks) {
+            NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:5.0];
+            NSHTTPURLResponse *response = nil;
+            NSError *error = nil;
+            [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
+            if(response.statusCode == 404 || response.statusCode == 500 || error) {
+                NSLog(@"Request returned error code 404 or 500. Error: %@",[error localizedDescription]);
+                [_sources addObject:@"Error"];
+            } else {
+                [_sources addObject:[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""]];
+                [self downloadRepoFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[_sources lastObject]];
+            }
+        }
+        // Does not remove some files for a reason, so to replace default C "unlink" with NSFileManager functions in int bunzip_one
+        for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
         [alert dismissWithClickedButtonIndex:0 animated:YES];
         [alert release];
-        for (id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
     });
+        [_tableView3 reloadData];
 }
 
 int bunzip_one(const char file[999], const char output[999]) {
@@ -632,7 +669,7 @@ int bunzip_one(const char file[999], const char output[999]) {
 
 UIAlertView *addSourceAlert;
 - (void)addSource {
-    addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
+    addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source WITHOUT including \"http(s)://\" or \"www\"" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
     addSourceAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
     [addSourceAlert show];
 }
@@ -739,6 +776,7 @@ UIAlertView *addSourceAlert;
     _manageLabel.textColor = [UIColor grayColor];
     _tableView.hidden = YES;
     _tableView2.hidden = YES;
+    _tableView3.hidden = YES;
     _searchField.hidden = YES;
 }
 - (void)sourcesAction {
@@ -761,7 +799,9 @@ UIAlertView *addSourceAlert;
     _manageImage.tintColor = [UIColor grayColor];
     _manageLabel.textColor = [UIColor grayColor];
     _tableView.hidden = YES;
-    _tableView2.hidden = NO;
+    _tableView2.hidden = YES;
+    _tableView3.hidden = NO;
+    [self.view bringSubviewToFront:_tableView3];
     _searchField.hidden = NO;
     if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor grayColor]}];
     else _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor orangeColor]}];
@@ -788,6 +828,7 @@ UIAlertView *addSourceAlert;
     else _manageLabel.textColor = coolerBlueColor;
     _tableView.hidden = NO;
     _tableView2.hidden = YES;
+    _tableView3.hidden = YES;
     _searchField.hidden = YES;
     [self.view bringSubviewToFront:_navigationView];
 }
@@ -955,8 +996,18 @@ UIAlertView *addSourceAlert;
 }
 
 - (void)downloadRepoFromURLString:(NSString *)urlString saveFilename:(NSString *)filename {
-    NSData *URLData = [NSData dataWithContentsOfURL:[NSURL URLWithString:urlString]];
-    if (URLData) [URLData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@.bz2",filename] atomically:YES];
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    config.HTTPAdditionalHeaders = @{@"User-Agent": @"Telesphoreo APT-HTTP/1.0.592", @"X-Firmware": [[UIDevice currentDevice] systemVersion], @"X-Machine": _deviceModel, @"X-Unique-ID": [self uniqueDeviceID]};
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:60.0];
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error) {
+            NSLog(@"Error: %@", error);
+            return;
+        }
+        [data writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@.bz2",filename] atomically:YES];
+    }];
+    [task resume];
 }
 
 - (NSArray *)outputOfCommand:(NSString *)command withArguments:(NSArray *)args {
