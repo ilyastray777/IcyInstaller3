@@ -14,29 +14,10 @@
 		667F5B6E202CC3FE0083C5D9 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B6D202CC3FE0083C5D9 /* ViewController.m */; };
 		667F5B73202CC3FE0083C5D9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 667F5B72202CC3FE0083C5D9 /* Assets.xcassets */; };
 		667F5B79202CC3FE0083C5D9 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B78202CC3FE0083C5D9 /* main.m */; };
-		667F5B83202CC3FE0083C5D9 /* IcyInstaller3Tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B82202CC3FE0083C5D9 /* IcyInstaller3Tests.m */; };
-		667F5B8E202CC3FE0083C5D9 /* IcyInstaller3UITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B8D202CC3FE0083C5D9 /* IcyInstaller3UITests.m */; };
 		667F5B9D202CC5130083C5D9 /* Default-667h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 667F5B9B202CC5130083C5D9 /* Default-667h@2x.png */; };
 		667F5B9E202CC5130083C5D9 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 667F5B9C202CC5130083C5D9 /* Default-568h@2x.png */; };
 		66B31EBC20D7BE5D00FEEA2B /* libMobileGestalt.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 66B31EBB20D7BE5D00FEEA2B /* libMobileGestalt.tbd */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		667F5B7F202CC3FE0083C5D9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 667F5B5E202CC3FE0083C5D9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 667F5B65202CC3FE0083C5D9;
-			remoteInfo = IcyInstaller3;
-		};
-		667F5B8A202CC3FE0083C5D9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 667F5B5E202CC3FE0083C5D9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 667F5B65202CC3FE0083C5D9;
-			remoteInfo = IcyInstaller3;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		661045C320A0884B008AEC88 /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; path = icons; sourceTree = "<group>"; };
@@ -51,12 +32,6 @@
 		667F5B72202CC3FE0083C5D9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		667F5B77202CC3FE0083C5D9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		667F5B78202CC3FE0083C5D9 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		667F5B7E202CC3FE0083C5D9 /* IcyInstaller3Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IcyInstaller3Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		667F5B82202CC3FE0083C5D9 /* IcyInstaller3Tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IcyInstaller3Tests.m; sourceTree = "<group>"; };
-		667F5B84202CC3FE0083C5D9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		667F5B89202CC3FE0083C5D9 /* IcyInstaller3UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IcyInstaller3UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		667F5B8D202CC3FE0083C5D9 /* IcyInstaller3UITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IcyInstaller3UITests.m; sourceTree = "<group>"; };
-		667F5B8F202CC3FE0083C5D9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		667F5B9B202CC5130083C5D9 /* Default-667h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-667h@2x.png"; sourceTree = "<group>"; };
 		667F5B9C202CC5130083C5D9 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
 		66B31EBB20D7BE5D00FEEA2B /* libMobileGestalt.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libMobileGestalt.tbd; path = usr/lib/libMobileGestalt.tbd; sourceTree = SDKROOT; };
@@ -70,20 +45,6 @@
 			files = (
 				66B31EBC20D7BE5D00FEEA2B /* libMobileGestalt.tbd in Frameworks */,
 				66277D8220A2C3CB005051A0 /* libbz2.tbd in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		667F5B7B202CC3FE0083C5D9 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		667F5B86202CC3FE0083C5D9 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,8 +64,6 @@
 			isa = PBXGroup;
 			children = (
 				667F5B68202CC3FE0083C5D9 /* IcyInstaller3 */,
-				667F5B81202CC3FE0083C5D9 /* IcyInstaller3Tests */,
-				667F5B8C202CC3FE0083C5D9 /* IcyInstaller3UITests */,
 				667F5B67202CC3FE0083C5D9 /* Products */,
 				66277D8020A2C3CA005051A0 /* Frameworks */,
 			);
@@ -114,8 +73,6 @@
 			isa = PBXGroup;
 			children = (
 				667F5B66202CC3FE0083C5D9 /* IcyInstaller3.app */,
-				667F5B7E202CC3FE0083C5D9 /* IcyInstaller3Tests.xctest */,
-				667F5B89202CC3FE0083C5D9 /* IcyInstaller3UITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -140,24 +97,6 @@
 			path = IcyInstaller3;
 			sourceTree = "<group>";
 		};
-		667F5B81202CC3FE0083C5D9 /* IcyInstaller3Tests */ = {
-			isa = PBXGroup;
-			children = (
-				667F5B82202CC3FE0083C5D9 /* IcyInstaller3Tests.m */,
-				667F5B84202CC3FE0083C5D9 /* Info.plist */,
-			);
-			path = IcyInstaller3Tests;
-			sourceTree = "<group>";
-		};
-		667F5B8C202CC3FE0083C5D9 /* IcyInstaller3UITests */ = {
-			isa = PBXGroup;
-			children = (
-				667F5B8D202CC3FE0083C5D9 /* IcyInstaller3UITests.m */,
-				667F5B8F202CC3FE0083C5D9 /* Info.plist */,
-			);
-			path = IcyInstaller3UITests;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -178,42 +117,6 @@
 			productReference = 667F5B66202CC3FE0083C5D9 /* IcyInstaller3.app */;
 			productType = "com.apple.product-type.application";
 		};
-		667F5B7D202CC3FE0083C5D9 /* IcyInstaller3Tests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 667F5B95202CC3FE0083C5D9 /* Build configuration list for PBXNativeTarget "IcyInstaller3Tests" */;
-			buildPhases = (
-				667F5B7A202CC3FE0083C5D9 /* Sources */,
-				667F5B7B202CC3FE0083C5D9 /* Frameworks */,
-				667F5B7C202CC3FE0083C5D9 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				667F5B80202CC3FE0083C5D9 /* PBXTargetDependency */,
-			);
-			name = IcyInstaller3Tests;
-			productName = IcyInstaller3Tests;
-			productReference = 667F5B7E202CC3FE0083C5D9 /* IcyInstaller3Tests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		667F5B88202CC3FE0083C5D9 /* IcyInstaller3UITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 667F5B98202CC3FE0083C5D9 /* Build configuration list for PBXNativeTarget "IcyInstaller3UITests" */;
-			buildPhases = (
-				667F5B85202CC3FE0083C5D9 /* Sources */,
-				667F5B86202CC3FE0083C5D9 /* Frameworks */,
-				667F5B87202CC3FE0083C5D9 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				667F5B8B202CC3FE0083C5D9 /* PBXTargetDependency */,
-			);
-			name = IcyInstaller3UITests;
-			productName = IcyInstaller3UITests;
-			productReference = 667F5B89202CC3FE0083C5D9 /* IcyInstaller3UITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -226,16 +129,6 @@
 					667F5B65202CC3FE0083C5D9 = {
 						CreatedOnToolsVersion = 9.2;
 						ProvisioningStyle = Automatic;
-					};
-					667F5B7D202CC3FE0083C5D9 = {
-						CreatedOnToolsVersion = 9.2;
-						ProvisioningStyle = Automatic;
-						TestTargetID = 667F5B65202CC3FE0083C5D9;
-					};
-					667F5B88202CC3FE0083C5D9 = {
-						CreatedOnToolsVersion = 9.2;
-						ProvisioningStyle = Automatic;
-						TestTargetID = 667F5B65202CC3FE0083C5D9;
 					};
 				};
 			};
@@ -253,8 +146,6 @@
 			projectRoot = "";
 			targets = (
 				667F5B65202CC3FE0083C5D9 /* IcyInstaller3 */,
-				667F5B7D202CC3FE0083C5D9 /* IcyInstaller3Tests */,
-				667F5B88202CC3FE0083C5D9 /* IcyInstaller3UITests */,
 			);
 		};
 /* End PBXProject section */
@@ -272,20 +163,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		667F5B7C202CC3FE0083C5D9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		667F5B87202CC3FE0083C5D9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -299,36 +176,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		667F5B7A202CC3FE0083C5D9 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				667F5B83202CC3FE0083C5D9 /* IcyInstaller3Tests.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		667F5B85202CC3FE0083C5D9 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				667F5B8E202CC3FE0083C5D9 /* IcyInstaller3UITests.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		667F5B80202CC3FE0083C5D9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 667F5B65202CC3FE0083C5D9 /* IcyInstaller3 */;
-			targetProxy = 667F5B7F202CC3FE0083C5D9 /* PBXContainerItemProxy */;
-		};
-		667F5B8B202CC3FE0083C5D9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 667F5B65202CC3FE0083C5D9 /* IcyInstaller3 */;
-			targetProxy = 667F5B8A202CC3FE0083C5D9 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		667F5B90202CC3FE0083C5D9 /* Debug */ = {
@@ -477,64 +325,6 @@
 			};
 			name = Release;
 		};
-		667F5B96202CC3FE0083C5D9 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 7QEHQT8269;
-				INFOPLIST_FILE = IcyInstaller3Tests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.artikus.IcyInstaller3Tests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IcyInstaller3.app/IcyInstaller3";
-			};
-			name = Debug;
-		};
-		667F5B97202CC3FE0083C5D9 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 7QEHQT8269;
-				INFOPLIST_FILE = IcyInstaller3Tests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.artikus.IcyInstaller3Tests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IcyInstaller3.app/IcyInstaller3";
-			};
-			name = Release;
-		};
-		667F5B99202CC3FE0083C5D9 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 7QEHQT8269;
-				INFOPLIST_FILE = IcyInstaller3UITests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.artikus.IcyInstaller3UITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = IcyInstaller3;
-			};
-			name = Debug;
-		};
-		667F5B9A202CC3FE0083C5D9 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 7QEHQT8269;
-				INFOPLIST_FILE = IcyInstaller3UITests/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.artikus.IcyInstaller3UITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = IcyInstaller3;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -552,24 +342,6 @@
 			buildConfigurations = (
 				667F5B93202CC3FE0083C5D9 /* Debug */,
 				667F5B94202CC3FE0083C5D9 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		667F5B95202CC3FE0083C5D9 /* Build configuration list for PBXNativeTarget "IcyInstaller3Tests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				667F5B96202CC3FE0083C5D9 /* Debug */,
-				667F5B97202CC3FE0083C5D9 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		667F5B98202CC3FE0083C5D9 /* Build configuration list for PBXNativeTarget "IcyInstaller3UITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				667F5B99202CC3FE0083C5D9 /* Debug */,
-				667F5B9A202CC3FE0083C5D9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
