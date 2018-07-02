@@ -292,10 +292,14 @@ int packageIndex;
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
     // Get third party source list
-    NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
-    sources = [sources substringToIndex:sources.length - 1];
-    _sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+    if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
+        NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
+        sources = [sources substringToIndex:sources.length - 1];
+        // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
+        _sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+    }
     _sources = [[NSMutableArray alloc] init];
+    for(id object in [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"]) [_sources addObject:object];
     BOOL isDirectory;
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
@@ -331,6 +335,7 @@ int packageIndex;
     fclose(file);
     _loadingArea.text = [_loadingArea.text stringByAppendingString:@"Finished loading packages.\nLaunching Icy..."];
     [_tableView reloadData];
+    [_tableView3 reloadData];
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         _loadingView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 20,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height);
     } completion:^(BOOL finished) {
@@ -368,7 +373,7 @@ int packageIndex;
     } else if(theTableView == _tableView2) {
         cell.textLabel.text = [_searchNames objectAtIndex:indexPath.row];
         cell.detailTextLabel.text = [_searchDescs objectAtIndex:indexPath.row];
-    } else if(theTableView == _tableView3) cell.textLabel.text = [_sources objectAtIndex:indexPath.row];
+    } else if(theTableView == _tableView3) cell.textLabel.text = [[_sources objectAtIndex:indexPath.row] stringByReplacingOccurrencesOfString:@"_" withString:@" "];
     else cell.textLabel.text = @"Some stupid error happened";
     if(icon == nil) return cell;
     UIGraphicsBeginImageContextWithOptions(CGSizeMake(40,40), NO, [UIScreen mainScreen].scale);
@@ -383,7 +388,7 @@ int packageIndex;
 - (void)tableView:(UITableView *)theTableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if(theTableView == _tableView) [self packageInfoWithIndexPath:indexPath];
     else if(theTableView == _tableView2) [self showDepictionForPackageWithIndexPath:indexPath];
-    else if(theTableView == _tableView3) [self repoActionsForRepoAtIndexPath:indexPath];
+    else if(theTableView == _tableView3) [self removeRepoAtIndexPath:indexPath];
     else [self messageWithTitle:@"Error" message:@"Literally an error, and a very, very strange one... Go report this to ArtikusHG."];
     [theTableView deselectRowAtIndexPath:indexPath animated:YES];
 }
@@ -535,11 +540,10 @@ UIAlertView *respringAlert;
         posix_spawn(&pid, "/usr/bin/uicache", NULL, NULL, (char* const*)argv, NULL);
         waitpid(pid, &status, 0);
         [alert dismissWithClickedButtonIndex:0 animated:YES];
-        [alert release];
     });
 }
 
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
+- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
     if(alertView == dependencyAlert && buttonIndex != [alertView cancelButtonIndex]) {
         for (id object in dependencies) [self removePackageWithBundleID:object];
         [self reload];
@@ -555,8 +559,6 @@ UIAlertView *respringAlert;
     else if(alertView == manageAlert && buttonIndex == 2) [self updatePackages];
     else if(alertView == manageAlert && buttonIndex == 3) [self addSource];
     else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Loading..." message:@"Checking if entered the source URL is valid..." delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
-        [alert show];
         long releaseStatusCode = [self statusCodeOfFileAtURL:[NSString stringWithFormat:@"http://%@/Release",[alertView textFieldAtIndex:0].text]];
         if(releaseStatusCode != 200) {
             [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Requesting the \"Release\" file of the repository returned the error code %ld or another error. This means a readable third-party source no longer exists at this URL (or it actually never did), has been moved or temporairly taken down. You can try contacting the repository owner or the developer of Icy Installer by sending the contents of the /var/mobile/Media/Icy/log.txt file.",releaseStatusCode]];
@@ -577,10 +579,21 @@ UIAlertView *respringAlert;
         NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:@"/var/mobile/Media/Icy/sources.list"];
         [fileHandle seekToEndOfFile];
         [fileHandle writeData:[[NSString stringWithFormat:@"http://%@\n",[alertView textFieldAtIndex:0].text] dataUsingEncoding:NSUTF8StringEncoding]];
-        [alert dismissWithClickedButtonIndex:0 animated:YES];
-        [alert release];
         [self messageWithTitle:@"Done" message:@"The source was added to your personal list and downloaded to the device's storage."];
+        // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
+        if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
+            NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
+            // Remove last \n (newline character)
+            sources = [sources substringToIndex:sources.length - 1];
+            _sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+        }
         [self refreshSources];
+    } else if(alertView == removeRepoAlert) {
+        [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:[_sources objectAtIndex:repoRemoveIndex]] error:nil];
+        [_sources removeObjectAtIndex:repoRemoveIndex];
+        [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
+        [_tableView3 reloadData];
+        [[[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil] stringByReplacingOccurrencesOfString:[[_sourceLinks objectAtIndex:repoRemoveIndex] stringByAppendingString:@"\n"] withString:@""] writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
     }
 }
 
@@ -615,6 +628,12 @@ UIAlertView *manageAlert;
 }
 
 - (void)refreshSources {
+    NSError *err = nil;
+    for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:nil]) [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] error:&err];
+    if(err) {
+        [self messageWithTitle:@"Error" message:[err localizedDescription]];
+        return;
+    }
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading sources..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
     [alert show];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list"]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
@@ -630,20 +649,20 @@ UIAlertView *manageAlert;
         for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
         // Third party repos
         for(id object in _sourceLinks) {
-            NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:5.0];
-            NSHTTPURLResponse *response = nil;
-            NSError *error = nil;
-            [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:&error];
-            if(response.statusCode == 404 || response.statusCode == 500 || error) {
-                NSLog(@"Request returned error code 404 or 500. Error: %@",[error localizedDescription]);
-                [_sources addObject:@"Error"];
+            long releaseResponse = [self statusCodeOfFileAtURL:[object stringByAppendingString:@"/Release"]];
+            if(releaseResponse != 200) {
+                NSLog(@"Request returned code not equal to 200 (%ld)",releaseResponse);
+                [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from yout list because it does not seem to respond.",object]];
             } else {
                 [_sources addObject:[[[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""] stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
                 [self downloadFileFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[NSString stringWithFormat:@"Repos/%@.bz2",[_sources lastObject]]];
-                //bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@.bz2",[_sources lastObject]] UTF8String], [[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:[_sources lastObject]] UTF8String]);
             }
         }
+        NSOrderedSet *orderedSet = [NSOrderedSet orderedSetWithArray:_sources];
+        _sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
+        [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
         [alert dismissWithClickedButtonIndex:0 animated:YES];
+        [_tableView3 reloadData];
     });
 }
 
@@ -689,8 +708,12 @@ int bunzip_one(const char file[999], const char output[999]) {
     // TODO
 }
 
-- (void)repoActionsForRepoAtIndexPath:(NSIndexPath *)indexPath {
-    
+UIAlertView *removeRepoAlert;
+int repoRemoveIndex;
+- (void)removeRepoAtIndexPath:(NSIndexPath *)indexPath {
+    repoRemoveIndex = (int)indexPath.row;
+    removeRepoAlert = [[UIAlertView alloc] initWithTitle:@"Confirm action" message:[NSString stringWithFormat:@"Please confirm that you really want to remove \"%@\" from the list of your sources.",[_tableView3 cellForRowAtIndexPath:indexPath].textLabel.text] delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", nil];
+    [removeRepoAlert show];
 }
 
 UIAlertView *addSourceAlert;
@@ -712,6 +735,7 @@ UIAlertView *addSourceAlert;
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && !_depictionWebView.hidden) {
         _nameLabel.text = @"Getting...";
         [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
+        //[self messageWithTitle:@"Link" message:[_searchFilenames objectAtIndex:packageIndex]];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Backing up..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
         [alert show];
@@ -826,8 +850,10 @@ UIAlertView *addSourceAlert;
     _manageImage.tintColor = [UIColor grayColor];
     _manageLabel.textColor = [UIColor grayColor];
     _tableView.hidden = YES;
-    _tableView2.hidden = YES;
+    _tableView2.hidden = NO;
     _tableView3.hidden = NO;
+    [self.view bringSubviewToFront:_tableView3];
+    //_tableView3.hidden = NO;
     [self.view bringSubviewToFront:_tableView3];
     _searchField.hidden = NO;
     if(!darkMode) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor grayColor]}];
@@ -885,13 +911,17 @@ UIAlertView *addSourceAlert;
     NSArray *repos = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:NULL];
     for (id repo in repos) {
         NSString *fullURL = nil;
+        if([repo rangeOfString:@".bz2"].location != NSNotFound) continue;
         if([repo isEqualToString:@"ModMyi"]) fullURL = @"http://modmyi.saurik.com/";
         else if ([repo isEqualToString:@"Zodttd"]) fullURL = @"http://cydia.zodttd.com/repo/cydia/";
         else if([repo isEqualToString:@"Saurik"]) fullURL = @"http://apt.saurik.com/";
         else if([repo isEqualToString:@"BigBoss"]) fullURL = @"http://apt.thebigboss.org/repofiles/cydia/";
+        else fullURL = [_sourceLinks objectAtIndex:[_sources indexOfObject:repo]];
+        if(![[fullURL substringFromIndex:fullURL.length - 1] isEqualToString:@"/"]) fullURL = [fullURL stringByAppendingString:@"/"];
         [self searchForPackage:_searchField.text inRepo:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",repo] withFullURLString:fullURL];
     }
     [_tableView2 reloadData];
+    _tableView3.hidden = YES;
     [self.view endEditing:YES];
     return YES;
 }
@@ -989,10 +1019,12 @@ UIAlertView *addSourceAlert;
     NSHTTPURLResponse *response = nil;
     NSError *error = nil;
     NSMutableURLRequest *mutableRequest = [request mutableCopy];
-    [mutableRequest setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
-    [mutableRequest setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
-    [mutableRequest setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
-    [mutableRequest setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    if([url rangeOfString:@"yourepo"].location != NSNotFound) {
+        [mutableRequest setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
+        [mutableRequest setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
+        [mutableRequest setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
+        [mutableRequest setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    }
     [NSURLConnection sendSynchronousRequest:mutableRequest returningResponse:&response error:&error];
     if(error) NSLog(@"Status code: %ld\nError: %@",(long)response.statusCode,[error localizedDescription]);
     return (long)response.statusCode;
@@ -1025,16 +1057,18 @@ UIAlertView *addSourceAlert;
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
     _filename = filename;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
-    [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
-    [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
-    [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
-    [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    //if([urlString rangeOfString:@"yourepo"].location != NSNotFound) {
+        [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
+        [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
+        [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
+        [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    //}
     self.connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 }
 
 - (void)downloadFileFromURLString:(NSString *)urlString saveFilename:(NSString *)filename {
     NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
-    config.HTTPAdditionalHeaders = @{@"User-Agent": @"Telesphoreo APT-HTTP/1.0.592", @"X-Firmware": [[UIDevice currentDevice] systemVersion], @"X-Machine": _deviceModel, @"X-Unique-ID": [self uniqueDeviceID]};
+    if([urlString rangeOfString:@"yourepo"].location != NSNotFound) config.HTTPAdditionalHeaders = @{@"User-Agent": @"Telesphoreo APT-HTTP/1.0.592", @"X-Firmware": [[UIDevice currentDevice] systemVersion], @"X-Machine": _deviceModel, @"X-Unique-ID": [self uniqueDeviceID]};
     NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:60.0];
     NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -1043,6 +1077,11 @@ UIAlertView *addSourceAlert;
             return;
         }
         [data writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/%@",filename] atomically:YES];
+        // Fallback: sometimes the above code does not seem to work, so we use the simplest way of downloading files
+        if(![[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/var/mobile/Media/Icy/%@",filename]]) {
+            NSData *fallbackData = [NSData dataWithContentsOfURL:[NSURL URLWithString:urlString]];
+            if(fallbackData) [fallbackData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/Icy/%@",filename] atomically:YES];
+        }
         char cfilename[999];
         snprintf(cfilename, sizeof(cfilename), "/var/mobile/Media/Icy/%s", [filename UTF8String]);
         char coutname[999];
