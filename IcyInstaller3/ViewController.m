@@ -59,6 +59,7 @@
 @property (strong, nonatomic) NSMutableArray *packageIcons;
 
 // Package search arrays
+@property (strong, nonatomic) NSMutableArray *searchPackages;
 @property (strong, nonatomic) NSMutableArray *searchNames;
 @property (strong, nonatomic) NSMutableArray *searchDescs;
 @property (strong, nonatomic) NSMutableArray *searchDepictions;
@@ -86,6 +87,7 @@ int packageIndex;
     uname(&systemInfo);
     _deviceModel = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
     // Initialize arrays
+    _searchPackages = [[NSMutableArray alloc] init];
     _searchNames = [[NSMutableArray alloc] init];
     _searchDescs = [[NSMutableArray alloc] init];
     _searchDepictions = [[NSMutableArray alloc] init];
@@ -287,6 +289,24 @@ int packageIndex;
 #pragma mark - Loading methods
 
 - (void)loadStuff {
+    // ---- DEPENDENCIES ARTIKUS SEE IT'S HERE NOT SOMEWHERE ELSE IDIOT ---- //
+    NSMutableArray *packageDependencies = [[NSMutableArray alloc] initWithArray:[[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-f", @"/var/mobile/deb.deb", @"Depends"] errors:NO] componentsSeparatedByString:@", "]];
+    NSMutableArray *missingDependencies = [[NSMutableArray alloc] init];
+    [self messageWithTitle:@"Dependencies" message:[NSString stringWithFormat:@"%@",packageDependencies]];
+    for (id object in packageDependencies) {
+        object = [object stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+        NSString *noSpace = object;
+        if([object rangeOfString:@" "].location != NSNotFound) noSpace = [[object substringToIndex:[object rangeOfString:@" "].location] stringByReplacingOccurrencesOfString:@" " withString:@""];
+        if([object isEqualToString:noSpace] && ![self isPackageInstalled:object]) [missingDependencies addObject:object];
+        if(![object isEqualToString:noSpace] && ![self isPackageInstalled:noSpace]) {
+            NSString *version = [object substringFromIndex:[object rangeOfString:@"("].location];
+            NSString *compare = [NSString stringWithFormat:@"%@ %@",[[UIDevice currentDevice] systemVersion],[[version stringByReplacingOccurrencesOfString:@"(" withString:@""] stringByReplacingOccurrencesOfString:@")" withString:@""]];
+            if([noSpace isEqualToString:@"firmware"] && [self returnOfCommand:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"--compare-versions", compare]] != 0) [self messageWithTitle:@"Error" message:@"This package requires a newer or older version of iOS."];
+            else if(![noSpace isEqualToString:@"firmware"] && [self returnOfCommand:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"--compare-versions", compare]] != 0) [missingDependencies addObject:noSpace];
+        }
+    }
+    [self messageWithTitle:@"Missing dependencies" message:[NSString stringWithFormat:@"%@",missingDependencies]];
+    // ---- END OF DEPENDENCIES ARTIKUS AGAIN THE END IS HERE NOT SOME OTHER WHERE ELSE ---- //
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
@@ -499,7 +519,6 @@ int removeIndex;
 
 - (void)removePackageButtonAction {
     [self removePackageWithBundleID:[_packageIDs objectAtIndex:removeIndex]];
-    [self reload];
 }
 
 UIView *dependencyView;
@@ -521,6 +540,7 @@ UIAlertView *dependencyAlert;
         dependencyAlert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", nil];
         [dependencyAlert show];
     }
+    [self reload];
 }
 
 UIAlertView *respringAlert;
@@ -541,6 +561,10 @@ UIAlertView *respringAlert;
         waitpid(pid, &status, 0);
         [alert dismissWithClickedButtonIndex:0 animated:YES];
     });
+}
+
+- (void)willPresentAlertView:(UIAlertView *)alertView {
+    [self.view endEditing:YES];
 }
 
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
@@ -579,7 +603,6 @@ UIAlertView *respringAlert;
         NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:@"/var/mobile/Media/Icy/sources.list"];
         [fileHandle seekToEndOfFile];
         [fileHandle writeData:[[NSString stringWithFormat:@"http://%@\n",[alertView textFieldAtIndex:0].text] dataUsingEncoding:NSUTF8StringEncoding]];
-        [self messageWithTitle:@"Done" message:@"The source was added to your personal list and downloaded to the device's storage."];
         // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
         if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
             NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
@@ -588,12 +611,16 @@ UIAlertView *respringAlert;
             _sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
         }
         [self refreshSources];
-    } else if(alertView == removeRepoAlert) {
+    } else if(alertView == removeRepoAlert && buttonIndex != alertView.cancelButtonIndex) {
         [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:[_sources objectAtIndex:repoRemoveIndex]] error:nil];
         [_sources removeObjectAtIndex:repoRemoveIndex];
         [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
         [_tableView3 reloadData];
         [[[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil] stringByReplacingOccurrencesOfString:[[_sourceLinks objectAtIndex:repoRemoveIndex] stringByAppendingString:@"\n"] withString:@""] writeToFile:@"/var/mobile/Media/Icy/sources.list" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    } else if(alertView == optionsAlert && buttonIndex == 1) [self removePackageWithBundleID:[_searchPackages objectAtIndex:packageIndex]];
+    else if(alertView == optionsAlert && buttonIndex == 2) {
+        _nameLabel.text = @"Getting...";
+        [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
     }
 }
 
@@ -666,6 +693,12 @@ UIAlertView *manageAlert;
     });
 }
 
+UIAlertView *optionsAlert;
+- (void)showPackageOptions {
+    optionsAlert = [[UIAlertView alloc] initWithTitle:@"Options" message:@"Select an option to do with the package" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", @"Reinstall", nil];
+    [optionsAlert show];
+}
+
 int bunzip_one(const char file[999], const char output[999]) {
     FILE *f = fopen(file, "r+b");
     FILE *outfile = fopen(output, "w");
@@ -735,7 +768,6 @@ UIAlertView *addSourceAlert;
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && !_depictionWebView.hidden) {
         _nameLabel.text = @"Getting...";
         [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:packageIndex] saveFilename:@"downloaded.deb"];
-        //[self messageWithTitle:@"Link" message:[_searchFilenames objectAtIndex:packageIndex]];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Backing up..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
         [alert show];
@@ -753,6 +785,7 @@ UIAlertView *addSourceAlert;
         });
     } else if([_aboutButton.currentTitle isEqualToString:@"Manage"]) [self manage];
     else if([_aboutButton.currentTitle isEqualToString:@"Remove"]) [self removePackageButtonAction];
+    else if([_aboutButton.currentTitle isEqualToString:@"Options"]) [self showPackageOptions];
     else [self messageWithTitle:@"Some random shit happened" message:@"Literally the title."];
 }
 
@@ -791,6 +824,7 @@ UIAlertView *addSourceAlert;
     self.view.backgroundColor = [UIColor whiteColor];
     _tableView.backgroundColor = [UIColor whiteColor];
     _tableView2.backgroundColor = [UIColor whiteColor];
+    _tableView3.backgroundColor = [UIColor whiteColor];
     _searchField.backgroundColor = [UIColor whiteColor];
     _searchField.textColor = [UIColor blackColor];
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
@@ -908,8 +942,22 @@ UIAlertView *addSourceAlert;
         [self messageWithTitle:@"Sorry" message:@"This is too short for Icy to search. Please enter three or more symbols."];
         return YES;
     }
-    NSArray *repos = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:NULL];
-    for (id repo in repos) {
+    [self searchForPackageInAllRepos:_searchField.text];
+    [_tableView2 reloadData];
+    _tableView3.hidden = YES;
+    [self.view endEditing:YES];
+    return YES;
+}
+
+- (void)searchForPackageInAllRepos:(NSString *)package {
+    // Clean up arrays
+    [_searchPackages removeAllObjects];
+    [_searchNames removeAllObjects];
+    [_searchDescs removeAllObjects];
+    [_searchFilenames removeAllObjects];
+    [_searchDepictions removeAllObjects];
+    // For loop to search in all repos
+    for (id repo in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:NULL]) {
         NSString *fullURL = nil;
         if([repo rangeOfString:@".bz2"].location != NSNotFound) continue;
         if([repo isEqualToString:@"ModMyi"]) fullURL = @"http://modmyi.saurik.com/";
@@ -918,12 +966,8 @@ UIAlertView *addSourceAlert;
         else if([repo isEqualToString:@"BigBoss"]) fullURL = @"http://apt.thebigboss.org/repofiles/cydia/";
         else fullURL = [_sourceLinks objectAtIndex:[_sources indexOfObject:repo]];
         if(![[fullURL substringFromIndex:fullURL.length - 1] isEqualToString:@"/"]) fullURL = [fullURL stringByAppendingString:@"/"];
-        [self searchForPackage:_searchField.text inRepo:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",repo] withFullURLString:fullURL];
+        [self searchForPackage:package inRepo:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",repo] withFullURLString:fullURL];
     }
-    [_tableView2 reloadData];
-    _tableView3.hidden = YES;
-    [self.view endEditing:YES];
-    return YES;
 }
 
 - (void)searchForPackage:(NSString *)package inRepo:(NSString *)repo withFullURLString:(NSString *)fullURL {
@@ -935,18 +979,19 @@ UIAlertView *addSourceAlert;
     NSString *lastDepiction = nil;
     NSString *lastFilename = nil;
     NSString *lastName = nil;
+    NSString *lastPackage = nil;
     while(fgets(str, 999, file) != NULL) {
         if(strstr(str, [package UTF8String]) && strstr(str, "Name:")) shouldAdd = YES;
+        if(strstr(str, "Package:")) lastPackage = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strstr(str, "Description:")) lastDesc = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Description: " withString:@""];
         if(strstr(str, "Depiction:")) lastDepiction = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Depiction: " withString:@""];
-        if(strstr(str, "Filename:")) lastFilename = [NSString stringWithFormat:@"%@%@",fullURL,[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Filename: " withString:@""]];
+        if(strstr(str, "Filename:")) lastFilename = [[[NSString stringWithFormat:@"%@%@",fullURL,[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Filename: " withString:@""]] stringByReplacingOccurrencesOfString:@" " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strstr(str, "Name:")) lastName = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""];
         if(strlen(str) < 2 && shouldAdd) {
             [_searchNames addObject:lastName];
             [_searchDescs addObject:lastDesc];
+            [_searchPackages addObject:lastPackage];
             [_searchDepictions addObject:lastDepiction];
-            lastFilename = [lastFilename stringByReplacingOccurrencesOfString:@" " withString:@""];
-            lastFilename = [lastFilename stringByReplacingOccurrencesOfString:@"\n" withString:@""];
             [_searchFilenames addObject:lastFilename];
             shouldAdd = NO;
         }
@@ -956,7 +1001,8 @@ UIAlertView *addSourceAlert;
 
 - (void)showDepictionForPackageWithIndexPath:(NSIndexPath *)indexPath {
     packageIndex = (int)indexPath.row;
-    [_aboutButton setTitle:@"Install" forState:UIControlStateNormal];
+    if([self isPackageInstalled:[_searchPackages objectAtIndex:packageIndex]]) [_aboutButton setTitle:@"Options" forState:UIControlStateNormal];
+    else [_aboutButton setTitle:@"Install" forState:UIControlStateNormal];
     NSString *depictionString = [_searchDepictions objectAtIndex:indexPath.row];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@" " withString:@""];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@"\n" withString:@""];
@@ -1014,6 +1060,31 @@ UIAlertView *addSourceAlert;
 
 #pragma mark - Random backend methods
 
+- (NSString *)versionOfPackage:(NSString *)package {
+    FILE *file = fopen("/var/lib/dpkg/status", "r");
+    char str[999];
+    const char *pkgsearch = [[NSString stringWithFormat:@"Package: %@\n",package] UTF8String];
+    BOOL shouldReturn = NO;
+    while(fgets(str, 999, file) != NULL) {
+        if(strcmp(str, pkgsearch) == 0) shouldReturn = YES;
+        if(shouldReturn && strstr(str, "Version:")) return [[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Version: " withString:@""];
+    }
+    return @"No such package";
+}
+
+- (BOOL)isPackageInstalled:(NSString *)package {
+    FILE *file = fopen("/var/lib/dpkg/status", "r");
+    char str[999];
+    const char *pkgsearch = [[NSString stringWithFormat:@"Package: %@\n",package] UTF8String];
+    const char *search = [package UTF8String];
+    while(fgets(str, 999, file) != NULL) {
+        if(strcmp(str, pkgsearch) == 0) return YES;
+        if(strstr(str, "Provides:") && strstr(str, search)) return YES;
+        if(strstr(str, "Replaces:") && strstr(str, search)) return YES;
+    }
+    return NO;
+}
+
 - (long)statusCodeOfFileAtURL:(NSString *)url {
     NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:url] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:5.0];
     NSHTTPURLResponse *response = nil;
@@ -1047,6 +1118,20 @@ UIAlertView *addSourceAlert;
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
     [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
     if([_filename isEqualToString:@"downloaded.deb"]) {
+        // Dependencies
+        //dpkg-deb -f ./com.artikus.IcyInstaller3_3.1.1_iphoneos-arm.deb Depends
+        /*NSArray *packageDependencies = [[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-f", @"/var/mobile/Media/downloaded.deb", @"Depends"] errors:NO] componentsSeparatedByString:@", "];
+        NSString *message = @"This package dependes on the following packages:";
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+        for (id object in packageDependencies) message = [message stringByAppendingString:[@"\n - " stringByAppendingString:object]];
+        message = [message stringByAppendingString:@"Attempting to search for these packages in your sources list."];
+        [alert show];
+        for (id object in packageDependencies) {
+            NSString *noSpace = nil;
+            if([object rangeOfString:@" "].location != NSNotFound) noSpace = [[object substringToIndex:[object rangeOfString:@" "].location] stringByReplacingOccurrencesOfString:@" " withString:@""];
+            
+        }*/
+        // Install
         [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO];
         [self reload];
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
@@ -1057,13 +1142,11 @@ UIAlertView *addSourceAlert;
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
     _filename = filename;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
-    //if([urlString rangeOfString:@"yourepo"].location != NSNotFound) {
-        [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
-        [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
-        [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
-        [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
-    //}
-    self.connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
+    [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
+    [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
+    [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
+    _connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 }
 
 - (void)downloadFileFromURLString:(NSString *)urlString saveFilename:(NSString *)filename {
@@ -1105,6 +1188,16 @@ UIAlertView *addSourceAlert;
     [task release];
     if(errors) return [[[NSString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
     else return [[[NSString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
+}
+
+- (NSInteger)returnOfCommand:(NSString *)command withArguments:(NSArray *)args {
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:command];
+    [task setCurrentDirectoryPath:@"/"];
+    [task setArguments:args];
+    [task launch];
+    [task waitUntilExit];
+    return [task terminationStatus];
 }
 
 #pragma mark - Random methods
