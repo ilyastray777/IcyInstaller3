@@ -8,21 +8,34 @@
 
 /* Begin PBXBuildFile section */
 		661045C420A0884C008AEC88 /* icons in Resources */ = {isa = PBXBuildFile; fileRef = 661045C320A0884B008AEC88 /* icons */; };
+		661353EE2105FCAE00EFAAC3 /* ManageViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 661353ED2105FCAE00EFAAC3 /* ManageViewController.m */; };
 		66277D8220A2C3CB005051A0 /* libbz2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 66277D8120A2C3CB005051A0 /* libbz2.tbd */; };
 		66285D9420BC1C6D0082F0E5 /* freeze in Resources */ = {isa = PBXBuildFile; fileRef = 66285D9320BC1C6C0082F0E5 /* freeze */; };
+		665B841D2101D6E9004B21FD /* HomeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 665B841C2101D6E9004B21FD /* HomeViewController.m */; };
+		665B84202101D75C004B21FD /* SourcesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 665B841F2101D75C004B21FD /* SourcesViewController.m */; };
+		665B84232101D89D004B21FD /* SearchViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 665B84222101D89D004B21FD /* SearchViewController.m */; };
 		667F5B6B202CC3FE0083C5D9 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B6A202CC3FE0083C5D9 /* AppDelegate.m */; };
 		667F5B6E202CC3FE0083C5D9 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B6D202CC3FE0083C5D9 /* ViewController.m */; };
 		667F5B73202CC3FE0083C5D9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 667F5B72202CC3FE0083C5D9 /* Assets.xcassets */; };
 		667F5B79202CC3FE0083C5D9 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 667F5B78202CC3FE0083C5D9 /* main.m */; };
 		667F5B9D202CC5130083C5D9 /* Default-667h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 667F5B9B202CC5130083C5D9 /* Default-667h@2x.png */; };
 		667F5B9E202CC5130083C5D9 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 667F5B9C202CC5130083C5D9 /* Default-568h@2x.png */; };
+		66A6401A2108765C00E7B854 /* IcyPackageList.m in Sources */ = {isa = PBXBuildFile; fileRef = 66A640192108765C00E7B854 /* IcyPackageList.m */; };
 		66B31EBC20D7BE5D00FEEA2B /* libMobileGestalt.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 66B31EBB20D7BE5D00FEEA2B /* libMobileGestalt.tbd */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		661045C320A0884B008AEC88 /* icons */ = {isa = PBXFileReference; lastKnownFileType = folder; path = icons; sourceTree = "<group>"; };
+		661353EC2105FCAE00EFAAC3 /* ManageViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ManageViewController.h; sourceTree = "<group>"; };
+		661353ED2105FCAE00EFAAC3 /* ManageViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ManageViewController.m; sourceTree = "<group>"; };
 		66277D8120A2C3CB005051A0 /* libbz2.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbz2.tbd; path = usr/lib/libbz2.tbd; sourceTree = SDKROOT; };
 		66285D9320BC1C6C0082F0E5 /* freeze */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = freeze; path = freeze/.theos/_/usr/bin/freeze; sourceTree = SOURCE_ROOT; };
+		665B841B2101D6E9004B21FD /* HomeViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HomeViewController.h; sourceTree = "<group>"; };
+		665B841C2101D6E9004B21FD /* HomeViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HomeViewController.m; sourceTree = "<group>"; };
+		665B841E2101D75C004B21FD /* SourcesViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SourcesViewController.h; sourceTree = "<group>"; };
+		665B841F2101D75C004B21FD /* SourcesViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SourcesViewController.m; sourceTree = "<group>"; };
+		665B84212101D89D004B21FD /* SearchViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SearchViewController.h; sourceTree = "<group>"; };
+		665B84222101D89D004B21FD /* SearchViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SearchViewController.m; sourceTree = "<group>"; };
 		666AC9D620ADC92C001BE2A6 /* NSTask.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSTask.h; sourceTree = "<group>"; };
 		667F5B66202CC3FE0083C5D9 /* IcyInstaller3.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IcyInstaller3.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		667F5B69202CC3FE0083C5D9 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
@@ -34,6 +47,8 @@
 		667F5B78202CC3FE0083C5D9 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		667F5B9B202CC5130083C5D9 /* Default-667h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-667h@2x.png"; sourceTree = "<group>"; };
 		667F5B9C202CC5130083C5D9 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
+		66A640182108765C00E7B854 /* IcyPackageList.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IcyPackageList.h; sourceTree = "<group>"; };
+		66A640192108765C00E7B854 /* IcyPackageList.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IcyPackageList.m; sourceTree = "<group>"; };
 		66B31EBB20D7BE5D00FEEA2B /* libMobileGestalt.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libMobileGestalt.tbd; path = usr/lib/libMobileGestalt.tbd; sourceTree = SDKROOT; };
 		66B31EBD20D7BE8E00FEEA2B /* MobileGestalt.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MobileGestalt.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -83,9 +98,19 @@
 				667F5B69202CC3FE0083C5D9 /* AppDelegate.h */,
 				667F5B6A202CC3FE0083C5D9 /* AppDelegate.m */,
 				66285D9320BC1C6C0082F0E5 /* freeze */,
+				665B841B2101D6E9004B21FD /* HomeViewController.h */,
+				665B841C2101D6E9004B21FD /* HomeViewController.m */,
 				667F5B6C202CC3FE0083C5D9 /* ViewController.h */,
 				667F5B6D202CC3FE0083C5D9 /* ViewController.m */,
 				666AC9D620ADC92C001BE2A6 /* NSTask.h */,
+				665B841E2101D75C004B21FD /* SourcesViewController.h */,
+				665B841F2101D75C004B21FD /* SourcesViewController.m */,
+				665B84212101D89D004B21FD /* SearchViewController.h */,
+				665B84222101D89D004B21FD /* SearchViewController.m */,
+				661353EC2105FCAE00EFAAC3 /* ManageViewController.h */,
+				661353ED2105FCAE00EFAAC3 /* ManageViewController.m */,
+				66A640182108765C00E7B854 /* IcyPackageList.h */,
+				66A640192108765C00E7B854 /* IcyPackageList.m */,
 				66B31EBD20D7BE8E00FEEA2B /* MobileGestalt.h */,
 				661045C320A0884B008AEC88 /* icons */,
 				667F5B72202CC3FE0083C5D9 /* Assets.xcassets */,
@@ -170,9 +195,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				66A6401A2108765C00E7B854 /* IcyPackageList.m in Sources */,
+				665B84202101D75C004B21FD /* SourcesViewController.m in Sources */,
 				667F5B6E202CC3FE0083C5D9 /* ViewController.m in Sources */,
 				667F5B79202CC3FE0083C5D9 /* main.m in Sources */,
 				667F5B6B202CC3FE0083C5D9 /* AppDelegate.m in Sources */,
+				661353EE2105FCAE00EFAAC3 /* ManageViewController.m in Sources */,
+				665B84232101D89D004B21FD /* SearchViewController.m in Sources */,
+				665B841D2101D6E9004B21FD /* HomeViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
