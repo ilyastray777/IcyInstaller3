@@ -11,9 +11,9 @@
 @implementation IcyPackageList
 
 - (id)init {
-    self.packageNames = [[NSMutableArray alloc] init];
     self.packageIDs = [[NSMutableArray alloc] init];
     self.packageIcons = [[NSMutableArray alloc] init];
+    self.packageNames = [[NSMutableArray alloc] init];
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
     NSString *icon = nil;

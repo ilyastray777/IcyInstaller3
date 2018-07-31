@@ -11,7 +11,7 @@
 #import <sys/utsname.h>
 
 
-@interface SourcesViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+@interface SourcesViewController : UIViewController <UITableViewDataSource, UITableViewDelegate, UIAlertViewDelegate>
 
 - (void)manage;
 @property (strong, nonatomic) UITableView *sourcesTableView;

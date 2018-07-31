@@ -8,6 +8,7 @@
 
 #import "SearchViewController.h"
 #import "SourcesViewController.h"
+#import "ManageViewController.h"
 
 @interface SearchViewController ()
 
@@ -15,8 +16,14 @@
 
 @implementation SearchViewController
 
+static int _packageIndex;
+static NSMutableArray *_searchFilenames;
+
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.view.backgroundColor = [UIColor whiteColor];
+    // Init download stuff
+    _downloadedMutableData = [[NSMutableData alloc] init];
     // Initialize arrays
     _searchPackages = [[NSMutableArray alloc] init];
     _searchNames = [[NSMutableArray alloc] init];
@@ -29,7 +36,7 @@
     [self.view addSubview:_depictionWebView];
     _depictionWebView.hidden = YES;
     // Search texfield
-    _searchField = [[UITextField alloc] initWithFrame:CGRectMake(15,110,[UIScreen mainScreen].bounds.size.width - 30,40)];
+    _searchField = [[UITextField alloc] initWithFrame:CGRectMake(15,100,[UIScreen mainScreen].bounds.size.width - 30,35)];
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
     UIView *searchImageView = [[UIView alloc] initWithFrame:CGRectMake(5, 0, 27, 17)];
     UIImageView *searchImage = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/Search.png"]];
@@ -46,13 +53,18 @@
     if(![[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor grayColor]}];
     else _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor orangeColor]}];
     [self.view addSubview:_searchField];
-    _searchTableView = [[UITableView alloc] initWithFrame:CGRectMake(10,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
+    _searchTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,150,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
     _searchTableView.delegate = self;
     _searchTableView.dataSource = self;
     _searchTableView.backgroundColor = [UIColor whiteColor];
     [_searchTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     _searchTableView.contentInset = UIEdgeInsetsMake(0,0,60,0);
     [self.view addSubview:_searchTableView];
+    // Progress View
+    _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
+    _progressView.frame = CGRectMake(0,110,[UIScreen mainScreen].bounds.size.width,10);
+    _progressView.progress = 0;
+    [self.view addSubview:_progressView];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)theTableView {
@@ -83,6 +95,16 @@
 - (void)tableView:(UITableView *)theTableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [self showDepictionForPackageWithIndexPath:indexPath];
     [theTableView deselectRowAtIndexPath:indexPath animated:YES];
+}
+
+- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+    ManageViewController *manageViewController = [[ManageViewController alloc] init];
+    if(alertView == optionsAlert && buttonIndex == 1) [manageViewController removePackageWithBundleID:[_searchPackages objectAtIndex:_packageIndex]];
+    else if(alertView == optionsAlert && buttonIndex == 2) {
+        ViewController *viewController = [[ViewController alloc] init];
+        viewController.nameLabel.text = @"Getting...";
+        [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:_packageIndex] saveFilename:@"downloaded.deb"];
+    }
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
@@ -150,7 +172,7 @@
 
 - (void)showDepictionForPackageWithIndexPath:(NSIndexPath *)indexPath {
     ViewController *viewController = [[ViewController alloc] init];
-    viewController.packageIndex = (int)indexPath.row;
+    _packageIndex = (int)indexPath.row;
     if([viewController isPackageInstalled:[_searchPackages objectAtIndex:indexPath.row]]) [viewController.aboutButton setTitle:@"Options" forState:UIControlStateNormal];
     else [viewController.aboutButton setTitle:@"Install" forState:UIControlStateNormal];
     NSString *depictionString = [_searchDepictions objectAtIndex:indexPath.row];
@@ -168,10 +190,69 @@ UIAlertView *optionsAlert;
     [optionsAlert show];
 }
 
++ (int)getPackageIndex {
+    return _packageIndex;
+}
+
++ (NSMutableArray *)getSearchFilenames {
+    return _searchFilenames;
+}
+
 - (void)messageWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title message:message delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
     [alert show];
     [alert release];
+}
+
+- (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
+    [self.view bringSubviewToFront:_progressView];
+    _filename = filename;
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
+    [request setValue:[[NSUserDefaults standardUserDefaults] objectForKey:@"udid"] forHTTPHeaderField:@"X-Unique-ID"];
+    [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
+    [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    [request setValue:[NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding] forHTTPHeaderField:@"X-Machine"];
+    _connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
+    [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
+    if([_filename isEqualToString:@"downloaded.deb"]) {
+        // Dependencies
+        //dpkg-deb -f ./com.artikus.IcyInstaller3_3.1.1_iphoneos-arm.deb Depends
+        /*NSArray *packageDependencies = [[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-f", @"/var/mobile/Media/downloaded.deb", @"Depends"] errors:NO] componentsSeparatedByString:@", "];
+         NSString *message = @"This package dependes on the following packages:";
+         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+         for (id object in packageDependencies) message = [message stringByAppendingString:[@"\n - " stringByAppendingString:object]];
+         message = [message stringByAppendingString:@"Attempting to search for these packages in your sources list."];
+         [alert show];
+         for (id object in packageDependencies) {
+         NSString *noSpace = nil;
+         if([object rangeOfString:@" "].location != NSNotFound) noSpace = [[object substringToIndex:[object rangeOfString:@" "].location] stringByReplacingOccurrencesOfString:@" " withString:@""];
+         
+         }*/
+        // Install
+        ViewController *viewController = [[ViewController alloc] init];
+        [viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO];
+        [viewController reload];
+        [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
+    }
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
+    self.urlResponse = response;
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
+    [self.downloadedMutableData appendData:data];
+    _progressView.progress = ((100.0/self.urlResponse.expectedContentLength)*self.downloadedMutableData.length)/100;
+    if (_progressView.progress == 1) {
+        _progressView.hidden = YES;
+    } else {
+        _progressView.hidden = NO;
+    }
 }
 
 - (void)didReceiveMemoryWarning {

@@ -65,7 +65,7 @@
 }
 
 - (void)tableView:(UITableView *)theTableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [self packageInfoWithIndexPath:indexPath];
+    if(!infoView.isHidden) [self packageInfoWithIndexPath:indexPath];
     [theTableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
@@ -73,10 +73,9 @@ UIView *infoView;
 UITextView *infoText;
 int removeIndex;
 - (void)packageInfoWithIndexPath:(NSIndexPath *)indexPath {
-    [_viewController.aboutButton setTitle:@"Remove" forState:UIControlStateNormal];
     removeIndex = (int)indexPath.row;
     _viewController.nameLabel.text = [_manageTableView cellForRowAtIndexPath:indexPath].textLabel.text;
-    UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height / 2 + 1)];
+    UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height / 2 - 50 + 1)];
     [_viewController makeViewRound:infoTextView withRadius:10];
     infoView = [[UIView alloc] initWithFrame:CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
     [infoView addSubview:infoTextView];
@@ -97,15 +96,14 @@ int removeIndex;
     [infoText setFont:[UIFont boldSystemFontOfSize:15]];
     [_viewController makeViewRound:infoText withRadius:10];
     [infoTextView addSubview:infoText];
-    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
-    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) dismiss.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
-    else dismiss.backgroundColor = [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
-    [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
-    [_viewController makeViewRound:dismiss withRadius:5];
-    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
-    [dismiss setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [dismiss addTarget:self action:@selector(dismissInfo) forControlEvents:UIControlEventTouchUpInside];
-    [infoView addSubview:dismiss];
+    UIButton *remove = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 200,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    remove.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
+    [remove setTitle:@"Remove" forState:UIControlStateNormal];
+    [_viewController makeViewRound:remove withRadius:5];
+    [remove.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
+    [remove setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [remove addTarget:self action:@selector(removePackageButtonAction) forControlEvents:UIControlEventTouchUpInside];
+    [infoView addSubview:remove];
     UIButton *more = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 40,40)];
     more.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [more setTitle:@"More info" forState:UIControlStateNormal];
@@ -117,6 +115,15 @@ int removeIndex;
     more.enabled = NO;
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:more];
+    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) dismiss.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
+    else dismiss.backgroundColor = [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
+    [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
+    [_viewController makeViewRound:dismiss withRadius:5];
+    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
+    [dismiss setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [dismiss addTarget:self action:@selector(dismissInfo) forControlEvents:UIControlEventTouchUpInside];
+    [infoView addSubview:dismiss];
     NSString *info = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:indexPath.row]] full:NO];
     if([info rangeOfString:@"hasdepiction"].location != NSNotFound) more.enabled = YES;
     info = [info stringByReplacingOccurrencesOfString:@"hasdepiction" withString:@""];
@@ -146,8 +153,8 @@ int removeIndex;
     [self.view bringSubviewToFront:_packageWebView];
 }
 
-- (void)expand {
-    infoText.text = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:removeIndex]] full:YES];
+    - (void)expand {
+        infoText.text = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:removeIndex]] full:YES];
 }
 
 - (NSString *)infoAboutPackage:(NSString *)package full:(BOOL)full {
@@ -177,9 +184,10 @@ int removeIndex;
 
 - (void)removePackageButtonAction {
     [self removePackageWithBundleID:[_packageList.packageIDs objectAtIndex:removeIndex]];
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Done" message:@"The package was removed" delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
+    [alert show];
 }
 
-UIView *dependencyView;
 NSMutableArray *dependencies;
 UIAlertView *dependencyAlert;
 - (void)removePackageWithBundleID:(NSString *)bundleID {
@@ -195,7 +203,7 @@ UIAlertView *dependencyAlert;
         NSString *message = @"The following packages depend on the package you're trying to remove:\n";
         for(id object in dependencyNames) message = [message stringByAppendingString:[NSString stringWithFormat:@"- %@\n",object]];
         message = [message stringByAppendingString:@"Would you also like to remove those packages?"];
-        dependencyAlert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", nil];
+        dependencyAlert = [[UIAlertView alloc] initWithTitle:@"Dependency warning" message:message delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", nil];
         [dependencyAlert show];
     }
     [_viewController reload];

@@ -37,16 +37,16 @@
     // Get device model and UDID
     struct utsname systemInfo;
     uname(&systemInfo);
-    [[NSUserDefaults standardUserDefaults] setObject:[self uniqueDeviceID] forKey:@"udid"];
+    if([[NSUserDefaults standardUserDefaults] objectForKey:@"udid"] != nil) [[NSUserDefaults standardUserDefaults] setObject:[self uniqueDeviceID] forKey:@"udid"];
     _deviceModel = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
     // Get arrays needed for reload
     _oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
     _oldTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil].count;
     // Get value of darkMode
-    // Stuff for downloading with progress
-    self.downloadedMutableData = [[NSMutableData alloc] init];
     // The navbar
     _navigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, 100)];
+    [[UINavigationBar appearance] setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
+    [UINavigationBar appearance].shadowImage = [UIImage new];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
         _navigationBar.barTintColor = [UIColor blackColor];
         _navigationBar.backgroundColor = [UIColor blackColor];
@@ -74,7 +74,7 @@
     _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,[UIScreen mainScreen].bounds.size.width - 130,40)];
     _nameLabel.backgroundColor = [UIColor clearColor];
     [_nameLabel setFont:[UIFont boldSystemFontOfSize:30]];
-    _nameLabel.text = @"Icy Installer";
+    _nameLabel.text = @"Home";
     [_navigationBar addSubview:_nameLabel];
     // The less top but still top label
     _dateLabel = [[UILabel alloc]initWithFrame:CGRectMake(15,30,[UIScreen mainScreen].bounds.size.width,20)];
@@ -103,22 +103,26 @@
     [self.view addSubview:_sourcesViewController.view];
     [self.view addSubview:_searchViewController.view];
     [self.view addSubview:_manageViewController.view];
-    _homeViewController.view.hidden = YES;
     _sourcesViewController.view.hidden = YES;
     _searchViewController.view.hidden = YES;
     _manageViewController.view.hidden = YES;
     // Fixup current views
     [self.view bringSubviewToFront:_tabbar];
     [self.view bringSubviewToFront:_navigationBar];
-    // Progress View
-    _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
-    _progressView.frame = CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,10);
-    _progressView.progress = 0;
-    [self.view addSubview:_progressView];
     //if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [self switchToDarkMode];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [self loadStuff];
     });
+}
+
+- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+    if(alertView == respringAlert && buttonIndex != [alertView cancelButtonIndex]) {
+        pid_t pid;
+        int status;
+        const char *argv[] = {"killall", "-9", "SpringBoard", NULL};
+        posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char**)argv, NULL);
+        waitpid(pid, &status, 0);
+    }
 }
 
 #pragma mark - Loading methods
@@ -166,12 +170,6 @@
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [[[HomeViewController alloc] init].welcomeWebView stringByEvaluatingJavaScriptFromString:@"document.body.style.background = 'black'; var p = document.getElementsByTagName('p'); for (var i = 0; i < p.length; i++) { p[i].style.color = 'white'; }"];
 }
 
-#pragma mark - UITableView methods
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)theTableView {
-    return 1;
-}
-
 UIAlertView *respringAlert;
 - (void)respring {
     respringAlert = [[UIAlertView alloc] initWithTitle:@"Respring required" message:@"Would you like to respring right now?" delegate:self cancelButtonTitle:@"No" otherButtonTitles:@"Yes", nil];
@@ -216,7 +214,8 @@ UIAlertView *respringAlert;
         [self messageWithTitle:@"Error" message:@"You need to search for a package first."];
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && !_searchViewController.depictionWebView.hidden) {
         _nameLabel.text = @"Getting...";
-        [self downloadWithProgressAndURLString:[_searchViewController.searchFilenames objectAtIndex:_packageIndex] saveFilename:@"downloaded.deb"];
+        SearchViewController *searchViewController = [[SearchViewController alloc] init];
+        [searchViewController downloadWithProgressAndURLString:[[SearchViewController getSearchFilenames] objectAtIndex:[SearchViewController getPackageIndex]] saveFilename:@"downloaded.deb"];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Backing up..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
         [alert show];
@@ -233,7 +232,6 @@ UIAlertView *respringAlert;
             [self messageWithTitle:@"Done" message:@"The package backup was saved to /var/mobile/Backup.txt"];
         });
     } else if([_aboutButton.currentTitle isEqualToString:@"Manage"]) [_sourcesViewController manage];
-    else if([_aboutButton.currentTitle isEqualToString:@"Remove"]) [_manageViewController removePackageButtonAction];
     else if([_aboutButton.currentTitle isEqualToString:@"Options"]) [_searchViewController showPackageOptions];
     else [self messageWithTitle:@"Some random shit happened" message:@"Literally the title."];
 }
@@ -405,53 +403,6 @@ UIAlertView *respringAlert;
         if(strstr(str, "Replaces:") && strstr(str, search)) return YES;
     }
     return NO;
-}
-- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
-    self.urlResponse = response;
-}
-
-- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-    [self.downloadedMutableData appendData:data];
-    _progressView.progress = ((100.0/self.urlResponse.expectedContentLength)*self.downloadedMutableData.length)/100;
-    if (_progressView.progress == 1) {
-        _progressView.hidden = YES;
-    } else {
-        _progressView.hidden = NO;
-    }
-}
-
-- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
-    if([_filename isEqualToString:@"downloaded.deb"]) {
-        // Dependencies
-        //dpkg-deb -f ./com.artikus.IcyInstaller3_3.1.1_iphoneos-arm.deb Depends
-        /*NSArray *packageDependencies = [[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-f", @"/var/mobile/Media/downloaded.deb", @"Depends"] errors:NO] componentsSeparatedByString:@", "];
-        NSString *message = @"This package dependes on the following packages:";
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
-        for (id object in packageDependencies) message = [message stringByAppendingString:[@"\n - " stringByAppendingString:object]];
-        message = [message stringByAppendingString:@"Attempting to search for these packages in your sources list."];
-        [alert show];
-        for (id object in packageDependencies) {
-            NSString *noSpace = nil;
-            if([object rangeOfString:@" "].location != NSNotFound) noSpace = [[object substringToIndex:[object rangeOfString:@" "].location] stringByReplacingOccurrencesOfString:@" " withString:@""];
-            
-        }*/
-        // Install
-        [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO];
-        [self reload];
-        [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
-        _nameLabel.text = @"Done";
-    }
-}
-
-- (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
-    _filename = filename;
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
-    [request setValue:[self uniqueDeviceID] forHTTPHeaderField:@"X-Unique-ID"];
-    [request setValue:@"Telesphoreo APT-HTTP/1.0.592" forHTTPHeaderField:@"User-Agent"];
-    [request setValue:[[UIDevice currentDevice] systemVersion] forHTTPHeaderField:@"X-Firmware"];
-    [request setValue:_deviceModel forHTTPHeaderField:@"X-Machine"];
-    _connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 }
 
 - (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors {
