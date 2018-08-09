@@ -33,10 +33,6 @@
 @property (strong, nonatomic) UIToolbar *toolbar;
 @property (strong, nonatomic) UITabBar *tabbar;
 
-// Reload needed arrays
-@property (nonatomic) NSUInteger oldApplications;
-@property (nonatomic) NSUInteger oldTweaks;
-
 // Device info
 @property (nonatomic, assign) NSString *deviceModel;
 

@@ -32,6 +32,8 @@
 
 @implementation ViewController
 
+NSUInteger oldApplications;
+NSUInteger oldTweaks;
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Get device model and UDID
@@ -40,9 +42,8 @@
     if([[NSUserDefaults standardUserDefaults] objectForKey:@"udid"] != nil) [[NSUserDefaults standardUserDefaults] setObject:[self uniqueDeviceID] forKey:@"udid"];
     _deviceModel = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
     // Get arrays needed for reload
-    _oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
-    _oldTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil].count;
-    // Get value of darkMode
+    oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
+    oldTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil].count;
     // The navbar
     _navigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, [UIScreen mainScreen].bounds.size.width, 100)];
     [[UINavigationBar appearance] setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
@@ -199,8 +200,14 @@ UIAlertView *respringAlert;
 - (void)reload {
     NSArray *newApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil];
     NSArray *newTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil];
-    if(newApplications.count != _oldApplications) [self uicache];
-    if(newTweaks.count != _oldTweaks) [self respring];
+    if(newApplications.count != oldApplications) {
+        oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
+        [self uicache];
+    }
+    if(newTweaks.count != oldTweaks) {
+        oldTweaks = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Library/MobileSubstrate/DynamicLibraries/" error:nil].count;
+        [self respring];
+    }
 }
 
 - (void)about {
@@ -325,7 +332,6 @@ UIAlertView *respringAlert;
 - (void)messageWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title message:message delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
     [alert show];
-    [alert release];
     //_aboutButton.titleLabel.textColor = coolerBlueColor;
 }
 

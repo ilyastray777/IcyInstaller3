@@ -153,7 +153,7 @@ int removeIndex;
     [self.view bringSubviewToFront:_packageWebView];
 }
 
-    - (void)expand {
+- (void)expand {
         infoText.text = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:removeIndex]] full:YES];
 }
 
@@ -179,13 +179,10 @@ int removeIndex;
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         infoView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161);
     } completion:nil];
-    [_viewController manageAction];
 }
 
 - (void)removePackageButtonAction {
     [self removePackageWithBundleID:[_packageList.packageIDs objectAtIndex:removeIndex]];
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Done" message:@"The package was removed" delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
-    [alert show];
 }
 
 NSMutableArray *dependencies;
@@ -195,8 +192,8 @@ UIAlertView *dependencyAlert;
     // If the command had dependency errors we do some extra stuff to remove dependencies too
     if([output rangeOfString:@"dpkg: dependency problems prevent removal"].location != NSNotFound) {
         output = [output stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"dpkg: dependency problems prevent removal of %@:\n",bundleID] withString:@""];
-        dependencies = [[[NSMutableArray alloc] init] autorelease];
-        NSMutableArray *dependencyNames = [[[NSMutableArray alloc] init] autorelease];
+        dependencies = [[NSMutableArray alloc] init];
+        NSMutableArray *dependencyNames = [[NSMutableArray alloc] init];
         for (id object in [output componentsSeparatedByString:@"\n"]) if([object rangeOfString:@"depends"].location != NSNotFound) [dependencies addObject:[[object substringToIndex:[[object substringFromIndex:1] rangeOfString:@" "].location + 1] stringByReplacingOccurrencesOfString:@" " withString:@""]];
         dependencies = [[[NSOrderedSet orderedSetWithArray:dependencies] array] mutableCopy];
         for (id object in dependencies) [dependencyNames addObject:[self packageNameForBundleID:object]];
@@ -207,6 +204,10 @@ UIAlertView *dependencyAlert;
         [dependencyAlert show];
     }
     [_viewController reload];
+}
+
+- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+    if(alertView == dependencyAlert && buttonIndex != [alertView cancelButtonIndex]) for(id object in dependencies) [self removePackageWithBundleID:object];
 }
 
 - (NSString *)packageNameForBundleID:(NSString *)bundleID {
