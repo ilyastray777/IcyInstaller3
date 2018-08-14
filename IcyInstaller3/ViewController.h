@@ -13,6 +13,7 @@
 #define coolerBlueColor [UIColor colorWithRed:0.00 green:0.52 blue:1.00 alpha:1.0];
 
 // Methods
++ (UIButton *)getAboutButton;
 - (BOOL)isPackageInstalled:(NSString *)package;
 - (BOOL)isNetworkAvailable;
 - (void)makeViewRound:(UIView *)view withRadius:(int)radius;
@@ -25,7 +26,6 @@
 - (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors;
 
 // UI
-@property (strong, nonatomic) UIButton *aboutButton;
 @property (strong, nonatomic) UIBarButtonItem *rightItem;
 @property (strong, nonatomic) UILabel *nameLabel;
 @property (strong, nonatomic) UILabel *dateLabel;

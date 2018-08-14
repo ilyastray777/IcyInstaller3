@@ -7,13 +7,14 @@
 //
 
 #import "ManageViewController.h"
+#import "NSTask.h"
 
 @interface ManageViewController ()
 
 @end
 
 @implementation ManageViewController
-
+ViewController *_viewController;
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Initialize view controller and package list
@@ -72,7 +73,10 @@
 UIView *infoView;
 UITextView *infoText;
 int removeIndex;
+BOOL infoPresent = NO;
 - (void)packageInfoWithIndexPath:(NSIndexPath *)indexPath {
+    if(infoPresent) return;
+    infoPresent = YES;
     removeIndex = (int)indexPath.row;
     _viewController.nameLabel.text = [_manageTableView cellForRowAtIndexPath:indexPath].textLabel.text;
     UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height / 2 - 50 + 1)];
@@ -154,7 +158,7 @@ int removeIndex;
 }
 
 - (void)expand {
-        infoText.text = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:removeIndex]] full:YES];
+    infoText.text = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:removeIndex]] full:YES];
 }
 
 - (NSString *)infoAboutPackage:(NSString *)package full:(BOOL)full {
@@ -179,6 +183,7 @@ int removeIndex;
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         infoView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161);
     } completion:nil];
+    infoPresent = NO;
 }
 
 - (void)removePackageButtonAction {
@@ -188,7 +193,7 @@ int removeIndex;
 NSMutableArray *dependencies;
 UIAlertView *dependencyAlert;
 - (void)removePackageWithBundleID:(NSString *)bundleID {
-    NSString *output = [_viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", bundleID] errors:YES];
+    NSString *output = [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", bundleID] errors:YES];
     // If the command had dependency errors we do some extra stuff to remove dependencies too
     if([output rangeOfString:@"dpkg: dependency problems prevent removal"].location != NSNotFound) {
         output = [output stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"dpkg: dependency problems prevent removal of %@:\n",bundleID] withString:@""];
@@ -204,6 +209,22 @@ UIAlertView *dependencyAlert;
         [dependencyAlert show];
     }
     [_viewController reload];
+}
+
+- (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors {
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:command];
+    [task setCurrentDirectoryPath:@"/"];
+    [task setArguments:args];
+    NSPipe *out = [NSPipe pipe];
+    NSPipe *err = [NSPipe pipe];
+    [task setStandardOutput:out];
+    [task setStandardError:err];
+    [task launch];
+    [task waitUntilExit];
+    [task release];
+    if(errors) return [[[NSString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
+    else return [[[NSString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
 }
 
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {

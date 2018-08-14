@@ -14,11 +14,9 @@
 - (void)showPackageOptions;
 + (int)getPackageIndex;
 + (NSMutableArray *)getSearchFilenames;
++ (BOOL)getOptions;
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename;
-@property (strong, nonatomic) UIProgressView *progressView;
-@property (strong, nonatomic) NSURLConnection *connectionManager;
-@property (strong, nonatomic) NSMutableData *downloadedMutableData;
-@property (strong, nonatomic) NSURLResponse *urlResponse;
+@property (strong, nonatomic) UIView *dismiss;
 @property (strong, nonatomic) UIWebView *depictionWebView;
 @property (strong, nonatomic) UITextField *searchField;
 @property (strong, nonatomic) UITableView *searchTableView;
@@ -26,6 +24,5 @@
 @property (strong, nonatomic) NSMutableArray *searchNames;
 @property (strong, nonatomic) NSMutableArray *searchDescs;
 @property (strong, nonatomic) NSMutableArray *searchDepictions;
-@property (strong, nonatomic) NSString *filename;
 
 @end

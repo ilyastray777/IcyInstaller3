@@ -18,12 +18,19 @@
 
 static int _packageIndex;
 static NSMutableArray *_searchFilenames;
+NSURLConnection *connectionManager;
+NSMutableData *downloadedMutableData;
+NSURLResponse *urlResponse;
+NSString *_filename;
+UIProgressView *progressView;
+UITextView *progressTextView;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     // Init download stuff
-    _downloadedMutableData = [[NSMutableData alloc] init];
+    downloadedMutableData = [[NSMutableData alloc] init];
+    //[self downloadWithProgressAndURLString:@"http://cydia.zodttd.com/repo/cydia/pool/main/c/com.macciti.lotus/com.macciti.lotus_1.0_iphoneos-arm.deb" saveFilename:@"deb"];
     // Initialize arrays
     _searchPackages = [[NSMutableArray alloc] init];
     _searchNames = [[NSMutableArray alloc] init];
@@ -31,10 +38,27 @@ static NSMutableArray *_searchFilenames;
     _searchDepictions = [[NSMutableArray alloc] init];
     _searchFilenames = [[NSMutableArray alloc] init];
     // The depiction webview
-    _depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
-    _depictionWebView.scrollView.contentInset = UIEdgeInsetsMake(0,0,50,0);
-    [self.view addSubview:_depictionWebView];
+    _depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 210)];
     _depictionWebView.hidden = YES;
+    [self.view addSubview:_depictionWebView];
+    progressTextView = [[UITextView alloc] initWithFrame:_depictionWebView.bounds];
+    progressTextView.backgroundColor = [UIColor whiteColor];
+    progressTextView.font = [UIFont boldSystemFontOfSize:15];
+    progressTextView.hidden = YES;
+    progressTextView.editable = NO;
+    progressTextView.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
+    [_depictionWebView addSubview:progressTextView];
+    _dismiss = [[UIView alloc] initWithFrame:CGRectMake(0,[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,40)];
+    _dismiss.backgroundColor = [UIColor whiteColor];
+    UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,0,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    dismiss.backgroundColor = [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
+    [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
+    dismiss.layer.masksToBounds = YES;
+    dismiss.layer.cornerRadius = 5;
+    [dismiss addTarget:self action:@selector(dismissDepiction) forControlEvents:UIControlEventTouchUpInside];
+    [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
+    [_dismiss addSubview:dismiss];
+    [self.view addSubview:_dismiss];
     // Search texfield
     _searchField = [[UITextField alloc] initWithFrame:CGRectMake(15,100,[UIScreen mainScreen].bounds.size.width - 30,35)];
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
@@ -61,10 +85,12 @@ static NSMutableArray *_searchFilenames;
     _searchTableView.contentInset = UIEdgeInsetsMake(0,0,60,0);
     [self.view addSubview:_searchTableView];
     // Progress View
-    _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
-    _progressView.frame = CGRectMake(0,110,[UIScreen mainScreen].bounds.size.width,10);
-    _progressView.progress = 0;
-    [self.view addSubview:_progressView];
+    progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
+    progressView.frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,10);
+    progressView.progress = 0;
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) progressView.progressTintColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
+    progressView.hidden = NO;
+    [self.view addSubview:progressView];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)theTableView {
@@ -101,8 +127,6 @@ static NSMutableArray *_searchFilenames;
     ManageViewController *manageViewController = [[ManageViewController alloc] init];
     if(alertView == optionsAlert && buttonIndex == 1) [manageViewController removePackageWithBundleID:[_searchPackages objectAtIndex:_packageIndex]];
     else if(alertView == optionsAlert && buttonIndex == 2) {
-        ViewController *viewController = [[ViewController alloc] init];
-        viewController.nameLabel.text = @"Getting...";
         [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:_packageIndex] saveFilename:@"downloaded.deb"];
     }
 }
@@ -151,20 +175,30 @@ static NSMutableArray *_searchFilenames;
     NSString *lastFilename = nil;
     NSString *lastName = nil;
     NSString *lastPackage = nil;
+    NSString *lastVersion = nil;
     while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, [package UTF8String]) && strstr(str, "Name:")) shouldAdd = YES;
+        if(strcasestr(str, [package UTF8String]) && strstr(str, "Name:")) shouldAdd = YES;
         if(strstr(str, "Package:")) lastPackage = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strstr(str, "Description:")) lastDesc = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Description: " withString:@""];
         if(strstr(str, "Depiction:")) lastDepiction = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Depiction: " withString:@""];
         if(strstr(str, "Filename:")) lastFilename = [[[NSString stringWithFormat:@"%@%@",fullURL,[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Filename: " withString:@""]] stringByReplacingOccurrencesOfString:@" " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strstr(str, "Name:")) lastName = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""];
+        if(strstr(str, "Version:")) lastVersion = [[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Version: " withString:@""];
         if(strlen(str) < 2 && shouldAdd) {
-            [_searchNames addObject:lastName];
+            NSString *add = [[lastName stringByAppendingString:lastVersion] stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+            [_searchNames addObject:add];
             [_searchDescs addObject:lastDesc];
             [_searchPackages addObject:lastPackage];
-            [_searchDepictions addObject:lastDepiction];
+            if(lastDepiction != nil) [_searchDepictions addObject:lastDepiction];
+            else [_searchDepictions addObject:@"ITHASNODEPICTION"];
             [_searchFilenames addObject:lastFilename];
             shouldAdd = NO;
+            lastDesc = nil;
+            lastDepiction = nil;
+            lastFilename = nil;
+            lastName = nil;
+            lastPackage = nil;
+            lastVersion = nil;
         }
     }
     fclose(file);
@@ -173,21 +207,40 @@ static NSMutableArray *_searchFilenames;
 - (void)showDepictionForPackageWithIndexPath:(NSIndexPath *)indexPath {
     ViewController *viewController = [[ViewController alloc] init];
     _packageIndex = (int)indexPath.row;
-    if([viewController isPackageInstalled:[_searchPackages objectAtIndex:indexPath.row]]) [viewController.aboutButton setTitle:@"Options" forState:UIControlStateNormal];
-    else [viewController.aboutButton setTitle:@"Install" forState:UIControlStateNormal];
+    if([viewController isPackageInstalled:[_searchPackages objectAtIndex:indexPath.row]]) {
+        [[ViewController getAboutButton] setTitle:@"Options" forState:UIControlStateNormal];
+        options = YES;
+    } else [[ViewController getAboutButton] setTitle:@"Install" forState:UIControlStateNormal];
     NSString *depictionString = [_searchDepictions objectAtIndex:indexPath.row];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@" " withString:@""];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    if([depictionString isEqualToString:@"ITHASNODEPICTION"]) [self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:_packageIndex] saveFilename:@"downloaded.deb"];
     [_depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:depictionString]]];
     _depictionWebView.hidden = NO;
+    _dismiss.hidden = NO;
     [self.view bringSubviewToFront:_depictionWebView];
     [self.view bringSubviewToFront:viewController.navigationBar];
+    [self.view bringSubviewToFront:progressView];
+    [self.view bringSubviewToFront:_dismiss];
+}
+
+- (void)dismissDepiction {
+    progressTextView.hidden = YES;
+    _depictionWebView.hidden = YES;
+    _dismiss.hidden = YES;
+    [[ViewController getAboutButton] setTitle:@"Install" forState:UIControlStateNormal];
+    options = NO;
 }
 
 UIAlertView *optionsAlert;
 - (void)showPackageOptions {
     optionsAlert = [[UIAlertView alloc] initWithTitle:@"Options" message:@"Select an option to do with the package" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Remove", @"Reinstall", nil];
     [optionsAlert show];
+}
+
+BOOL options = NO;
++ (BOOL)getOptions {
+    return options;
 }
 
 + (int)getPackageIndex {
@@ -205,7 +258,10 @@ UIAlertView *optionsAlert;
 }
 
 - (void)downloadWithProgressAndURLString:(NSString *)urlString saveFilename:(NSString *)filename {
-    [self.view bringSubviewToFront:_progressView];
+    progressTextView.hidden = NO;
+    progressTextView.text = @"Downloading package...";
+    urlString = [[urlString stringByReplacingOccurrencesOfString:@" " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    progressView.hidden = NO;
     _filename = filename;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:60.0];
     [request setValue:[[NSUserDefaults standardUserDefaults] objectForKey:@"udid"] forHTTPHeaderField:@"X-Unique-ID"];
@@ -214,44 +270,40 @@ UIAlertView *optionsAlert;
     struct utsname systemInfo;
     uname(&systemInfo);
     [request setValue:[NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding] forHTTPHeaderField:@"X-Machine"];
-    _connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
+    connectionManager = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    [self.downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
+    progressTextView.text = [progressTextView.text stringByAppendingString:@"\nWriting data to file..."];
+    [downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",_filename] atomically:YES];
+    progressTextView.text = [progressTextView.text stringByAppendingString:@"\nPreparing to run freeze binary..."];
     if([_filename isEqualToString:@"downloaded.deb"]) {
-        // Dependencies
-        //dpkg-deb -f ./com.artikus.IcyInstaller3_3.1.1_iphoneos-arm.deb Depends
-        /*NSArray *packageDependencies = [[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-f", @"/var/mobile/Media/downloaded.deb", @"Depends"] errors:NO] componentsSeparatedByString:@", "];
-         NSString *message = @"This package dependes on the following packages:";
-         UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Warning" message:message delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
-         for (id object in packageDependencies) message = [message stringByAppendingString:[@"\n - " stringByAppendingString:object]];
-         message = [message stringByAppendingString:@"Attempting to search for these packages in your sources list."];
-         [alert show];
-         for (id object in packageDependencies) {
-         NSString *noSpace = nil;
-         if([object rangeOfString:@" "].location != NSNotFound) noSpace = [[object substringToIndex:[object rangeOfString:@" "].location] stringByReplacingOccurrencesOfString:@" " withString:@""];
-         
-         }*/
+        // Dependencies go here when they're done
+        
         // Install
         ViewController *viewController = [[ViewController alloc] init];
-        [viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:NO];
+        NSString *out = [viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:YES];
         [viewController reload];
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
+        progressTextView.text = [progressTextView.text stringByAppendingString:[@"\n" stringByAppendingString:out]];
+        progressTextView.text = [progressTextView.text stringByAppendingString:@"Done. If no errors occured the package is now installed and ready to use."];
     }
 }
 
+long long length;
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
-    self.urlResponse = response;
+    urlResponse = response;
+    length = urlResponse.expectedContentLength;
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data {
-    [self.downloadedMutableData appendData:data];
-    _progressView.progress = ((100.0/self.urlResponse.expectedContentLength)*self.downloadedMutableData.length)/100;
-    if (_progressView.progress == 1) {
-        _progressView.hidden = YES;
+    [downloadedMutableData appendData:data];
+    NSLog(@"%.0f%%", ((100.0/length)*downloadedMutableData.length));
+    progressView.progress = ((100.0/length)*downloadedMutableData.length)/100;
+    if (progressView.progress == 1) {
+        progressView.hidden = YES;
     } else {
-        _progressView.hidden = NO;
+        progressView.hidden = NO;
     }
 }
 

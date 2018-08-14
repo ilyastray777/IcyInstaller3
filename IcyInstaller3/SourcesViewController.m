@@ -16,6 +16,17 @@
 
 BOOL darkMode = NO;
 
+- (id)init {
+    if(self = [super init]) {
+        NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
+        // Remove last \n (newline character)
+        sources = [sources substringToIndex:sources.length - 1];
+        self.sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+        self.sources = [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"];
+    }
+    return self;
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Get device model
@@ -231,7 +242,7 @@ int bunzip_one(const char file[999], const char output[999]) {
         FILE *input = fopen([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String], "r");
         FILE *output = fopen([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] UTF8String], "a");
         char str[999];
-        while(fgets(str, 999, input) != NULL) if(strstr(str, "Package:") || strstr(str, "Name:") || strstr(str, "Filename:") || strstr(str, "Description:") || strstr(str, "Depiction:") || strlen(str) < 3) fprintf(output, "%s", str);
+        while(fgets(str, 999, input) != NULL) if(strstr(str, "Package:") || strstr(str, "Name:") || strstr(str, "Filename:") || strstr(str, "Description:") || strstr(str, "Depiction:") || strstr(str, "Version:" ) || strlen(str) < 3) fprintf(output, "%s", str);
         fclose(input);
         fclose(output);
         unlink([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String]);

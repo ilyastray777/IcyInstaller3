@@ -31,9 +31,14 @@
 @end
 
 @implementation ViewController
-
+UIButton *_aboutButton;
 NSUInteger oldApplications;
 NSUInteger oldTweaks;
+
++ (UIButton *)getAboutButton {
+    return _aboutButton;
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Get device model and UDID
@@ -56,6 +61,7 @@ NSUInteger oldTweaks;
         _navigationBar.backgroundColor = [UIColor whiteColor];
     }
     [self.view addSubview:_navigationBar];
+    // Progress View
     // The button at the right
     _aboutButton = [[UIButton alloc] initWithFrame:CGRectMake(0,0,75,30)];
     _aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
@@ -141,8 +147,8 @@ NSUInteger oldTweaks;
         if(![object isEqualToString:noSpace] && ![self isPackageInstalled:noSpace]) {
             NSString *version = [object substringFromIndex:[object rangeOfString:@"("].location];
             NSString *compare = [NSString stringWithFormat:@"%@ %@",[[UIDevice currentDevice] systemVersion],[[version stringByReplacingOccurrencesOfString:@"(" withString:@""] stringByReplacingOccurrencesOfString:@")" withString:@""]];
-            if([noSpace isEqualToString:@"firmware"] && [self returnOfCommand:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"--compare-versions", compare]] != 0) [self messageWithTitle:@"Error" message:@"This package requires a newer or older version of iOS."];
-            else if(![noSpace isEqualToString:@"firmware"] && [self returnOfCommand:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"--compare-versions", compare]] != 0) [missingDependencies addObject:noSpace];
+            if([noSpace isEqualToString:@"firmware"] && [self returnOfCommand:@"/usr/bin/dpkg" withArguments:@[@"--compare-versions", compare]] != 0) [self messageWithTitle:@"Error" message:@"This package requires a newer or older version of iOS."];
+            else if(![noSpace isEqualToString:@"firmware"] && [self returnOfCommand:@"/usr/bin/dpkg" withArguments:@[@"--compare-versions", compare]] != 0) [missingDependencies addObject:noSpace];
         }
     }
     [self messageWithTitle:@"Missing dependencies" message:[NSString stringWithFormat:@"%@",missingDependencies]];*/
@@ -220,7 +226,6 @@ UIAlertView *respringAlert;
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && _searchViewController.depictionWebView.hidden) {
         [self messageWithTitle:@"Error" message:@"You need to search for a package first."];
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && !_searchViewController.depictionWebView.hidden) {
-        _nameLabel.text = @"Getting...";
         SearchViewController *searchViewController = [[SearchViewController alloc] init];
         [searchViewController downloadWithProgressAndURLString:[[SearchViewController getSearchFilenames] objectAtIndex:[SearchViewController getPackageIndex]] saveFilename:@"downloaded.deb"];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
@@ -322,7 +327,8 @@ UIAlertView *respringAlert;
 }
 
 - (void)searchAction {
-    [_aboutButton setTitle:@"Install" forState:UIControlStateNormal];
+    if([SearchViewController getOptions]) [_aboutButton setTitle:@"Options" forState:UIControlStateNormal];
+    else [_aboutButton setTitle:@"Install" forState:UIControlStateNormal];
     _searchViewController.view.hidden = NO;
     [self.view bringSubviewToFront:_searchViewController.view];
 }
@@ -399,12 +405,11 @@ UIAlertView *respringAlert;
 }
 
 - (BOOL)isPackageInstalled:(NSString *)package {
+    if([[self runCommandWithOutput:@"/usr/bin/dpkg" withArguments:@[@"-s", package] errors:YES] rangeOfString:@"is not installed"].location == NSNotFound) return YES;
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
-    const char *pkgsearch = [[NSString stringWithFormat:@"Package: %@\n",package] UTF8String];
     const char *search = [package UTF8String];
     while(fgets(str, 999, file) != NULL) {
-        if(strcmp(str, pkgsearch) == 0) return YES;
         if(strstr(str, "Provides:") && strstr(str, search)) return YES;
         if(strstr(str, "Replaces:") && strstr(str, search)) return YES;
     }

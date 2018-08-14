@@ -7,7 +7,6 @@
 //
 
 #import "IcyPackageList.h"
-@import UIKit;
 
 @implementation IcyPackageList
 
