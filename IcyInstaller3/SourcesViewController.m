@@ -13,16 +13,19 @@
 @end
 
 @implementation SourcesViewController
-
-BOOL darkMode = NO;
+UITableView *_sourcesTableView;
 
 - (id)init {
     if(self = [super init]) {
-        NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
-        // Remove last \n (newline character)
-        sources = [sources substringToIndex:sources.length - 1];
-        self.sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
-        self.sources = [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"];
+        // Get third party source list
+        // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
+        if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
+            NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
+            sources = [sources substringToIndex:sources.length - 1];
+            self.sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+        }
+        self.sources = [[NSMutableArray alloc] init];
+        for(id object in [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"]) [self.sources addObject:object];
     }
     return self;
 }
@@ -33,21 +36,32 @@ BOOL darkMode = NO;
     struct utsname systemInfo;
     uname(&systemInfo);
     _deviceModel = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-    // Get value of darkMode
-    darkMode = [[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"];
     // This line of code won't make any sense to you at first...
     // But it actually manages to do something...
     // If you try to remove this line, the statusCodeOfFileAtURL method won't work anymore.
     // So if in over a decade you'll try to do something here and remove it...
     // You have been warned.
     [self statusCodeOfFileAtURL:@"http://artikushg.yourepo.com/Release"];
+    // Get third party source list
+    if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
+        NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
+        sources = [sources substringToIndex:sources.length - 1];
+        // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
+        self.sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
+    }
+    self.sources = [[NSMutableArray alloc] init];
+    for(id object in [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"]) [self.sources addObject:object];
     // The tableview
     _sourcesTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
     _sourcesTableView.delegate = self;
     _sourcesTableView.dataSource = self;
-    _sourcesTableView.backgroundColor = [UIColor whiteColor];
+    _sourcesTableView.backgroundColor = [UIColor clearColor];
     [_sourcesTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     _sourcesTableView.contentInset = UIEdgeInsetsMake(0,0,60,0);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
+        if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _sourcesTableView.contentInset = UIEdgeInsetsMake(0,-160,60,0);
+        else _sourcesTableView.contentInset = UIEdgeInsetsMake(0,-30,60,0);
+    }
     [self.view addSubview:_sourcesTableView];
 }
 
@@ -65,9 +79,10 @@ BOOL darkMode = NO;
     if (cell == nil) {
         cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier] autorelease];
         cell.backgroundColor = [UIColor clearColor];
-        if(darkMode) {
+        if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
             cell.textLabel.textColor = [UIColor whiteColor];
             cell.detailTextLabel.textColor = [UIColor whiteColor];
+            cell.backgroundColor = [UIColor clearColor];
         }
         cell.textLabel.font = [UIFont boldSystemFontOfSize:15];
     }
@@ -84,10 +99,13 @@ BOOL darkMode = NO;
     [self.view endEditing:YES];
 }
 
++ (UITableView *)getSourcesTableView {
+    return _sourcesTableView;
+}
+
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
     if(alertView == manageAlert && buttonIndex == 1) [self refreshSources];
-    else if(alertView == manageAlert && buttonIndex == 2) [self updatePackages];
-    else if(alertView == manageAlert && buttonIndex == 3) [self addSource];
+    else if(alertView == manageAlert && buttonIndex == 2) [self addSource];
     else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) {
         long releaseStatusCode = [self statusCodeOfFileAtURL:[NSString stringWithFormat:@"http://%@/Release",[alertView textFieldAtIndex:0].text]];
         if(releaseStatusCode != 200) {
@@ -121,6 +139,7 @@ BOOL darkMode = NO;
             _sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
             [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
             [_sourcesTableView reloadData];
+            [self stripSources];
             [self messageWithTitle:@"Done" message:@"The source was added to your list."];
         }
     } else if(alertView == removeRepoAlert && buttonIndex != alertView.cancelButtonIndex) {
@@ -135,7 +154,7 @@ BOOL darkMode = NO;
 
 UIAlertView *manageAlert;
 - (void)manage {
-    manageAlert = [[UIAlertView alloc] initWithTitle:@"Manage" message:nil delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:@"Reload sources", @"Scan updates", @"Add source", nil];
+    manageAlert = [[UIAlertView alloc] initWithTitle:@"Manage" message:nil delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:@"Reload sources", @"Add source", nil];
     [manageAlert show];
 }
 
@@ -154,13 +173,12 @@ UIAlertView *addSourceAlert;
     [addSourceAlert show];
 }
 
-- (void)updatePackages {
-    // TODO, right now it's an empty method to silence the warning
-}
-
 - (void)refreshSources {
     NSError *err = nil;
-    for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:nil]) [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] error:&err];
+    for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:nil]) {
+        if([object isEqualToString:@"updates"]) continue;
+        [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] error:&err];
+    }
     if(err) {
         [self messageWithTitle:@"Error" message:[err localizedDescription]];
         return;
@@ -239,10 +257,26 @@ int bunzip_one(const char file[999], const char output[999]) {
             [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] error:nil];
             continue;
         }
+        if([object isEqualToString:@"updates"]) continue;
         FILE *input = fopen([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String], "r");
         FILE *output = fopen([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] UTF8String], "a");
         char str[999];
-        while(fgets(str, 999, input) != NULL) if(strstr(str, "Package:") || strstr(str, "Name:") || strstr(str, "Filename:") || strstr(str, "Description:") || strstr(str, "Depiction:") || strstr(str, "Version:" ) || strlen(str) < 3) fprintf(output, "%s", str);
+        BOOL hadDepiction = NO;
+        while(fgets(str, 999, input) != NULL) {
+            if(strstr(str, "Package:") || strstr(str, "Name:") || strstr(str, "Filename:") || strstr(str, "Description:") || strstr(str, "Version:" ) || strstr(str, "Depends:") || strstr(str, "Conflicts:")) fprintf(output, "%s", str);
+            if(strstr(str, "Depiction:")) {
+                fprintf(output, "%s", str);
+                hadDepiction = YES;
+            }
+            if(strlen(str) < 3) {
+                if(!hadDepiction) {
+                    // Workaround for packages that don't have depictions. Was lazy to implement a proper search algorithm for this bug so just did it like this
+                    fprintf(output, "%s", "Depiction: ITHASNODEPICTION");
+                }
+                fprintf(output, "%s", "\n\n");
+                hadDepiction = NO;
+            }
+        }
         fclose(input);
         fclose(output);
         unlink([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String]);
@@ -266,7 +300,7 @@ int bunzip_one(const char file[999], const char output[999]) {
 
 - (void)downloadFileFromURLString:(NSString *)urlString saveFilename:(NSString *)filename {
     NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
-    if([urlString rangeOfString:@"yourepo"].location != NSNotFound) config.HTTPAdditionalHeaders = @{@"User-Agent": @"Telesphoreo APT-HTTP/1.0.592", @"X-Firmware": [[UIDevice currentDevice] systemVersion], @"X-Machine": _deviceModel, @"X-Unique-ID":[[NSUserDefaults standardUserDefaults] objectForKey:@"udid"]};
+    config.HTTPAdditionalHeaders = @{@"User-Agent": @"Telesphoreo APT-HTTP/1.0.592", @"X-Firmware": [[UIDevice currentDevice] systemVersion], @"X-Machine": _deviceModel, @"X-Unique-ID":[[NSUserDefaults standardUserDefaults] objectForKey:@"udid"]};
     NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString] cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:60.0];
     NSURLSessionDataTask *task = [session dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -292,7 +326,6 @@ int bunzip_one(const char file[999], const char output[999]) {
 - (void)messageWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title message:message delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
     [alert show];
-    [alert release];
 }
 
 - (void)didReceiveMemoryWarning {

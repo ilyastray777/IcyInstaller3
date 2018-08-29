@@ -8,8 +8,7 @@
 
 #import <UIKit/UIKit.h>
 
-@interface HomeViewController : UIViewController
-
-@property (strong, nonatomic) UIWebView *welcomeWebView;
-
+@interface HomeViewController : UIViewController <UIWebViewDelegate>
++ (UIWebView *)getWelcomeWebView;
+- (void)load;
 @end

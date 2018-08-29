@@ -44,7 +44,7 @@ NSUInteger oldTweaks;
     // Get device model and UDID
     struct utsname systemInfo;
     uname(&systemInfo);
-    if([[NSUserDefaults standardUserDefaults] objectForKey:@"udid"] != nil) [[NSUserDefaults standardUserDefaults] setObject:[self uniqueDeviceID] forKey:@"udid"];
+    if([[NSUserDefaults standardUserDefaults] objectForKey:@"udid"] == nil) [[NSUserDefaults standardUserDefaults] setObject:[self uniqueDeviceID] forKey:@"udid"];
     _deviceModel = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
     // Get arrays needed for reload
     oldApplications = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/Applications/" error:nil].count;
@@ -55,7 +55,7 @@ NSUInteger oldTweaks;
     [UINavigationBar appearance].shadowImage = [UIImage new];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
         _navigationBar.barTintColor = [UIColor blackColor];
-        _navigationBar.backgroundColor = [UIColor blackColor];
+        _navigationBar.backgroundColor = [UIColor blackColor];  
     } else {
         _navigationBar.barTintColor = [UIColor whiteColor];
         _navigationBar.backgroundColor = [UIColor whiteColor];
@@ -67,7 +67,7 @@ NSUInteger oldTweaks;
     _aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
     else [_aboutButton setTitle:@"Dark" forState:UIControlStateNormal];
-    _aboutButton.titleLabel.textColor = coolerBlueColor;
+    [_aboutButton setTitleColor:[UIColor colorWithRed:0.00 green:0.52 blue:1.00 alpha:1.0] forState:UIControlStateNormal];
     [_aboutButton addTarget:self action:@selector(about) forControlEvents:UIControlEventTouchUpInside];
     [self makeViewRound:_aboutButton withRadius:5];
     UIView *aboutButtonView = [[UIView alloc] initWithFrame:_aboutButton.bounds];
@@ -116,7 +116,7 @@ NSUInteger oldTweaks;
     // Fixup current views
     [self.view bringSubviewToFront:_tabbar];
     [self.view bringSubviewToFront:_navigationBar];
-    //if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [self switchToDarkMode];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [self switchToDarkMode];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         [self loadStuff];
     });
@@ -135,46 +135,17 @@ NSUInteger oldTweaks;
 #pragma mark - Loading methods
 
 - (void)loadStuff {
-    // ---- DEPENDENCIES ARTIKUS SEE IT'S HERE NOT SOMEWHERE ELSE IDIOT ---- //
-    /*NSMutableArray *packageDependencies = [[NSMutableArray alloc] initWithArray:[[self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-f", @"/var/mobile/deb.deb", @"Depends"] errors:NO] componentsSeparatedByString:@", "]];
-    NSMutableArray *missingDependencies = [[NSMutableArray alloc] init];
-    [self messageWithTitle:@"Dependencies" message:[NSString stringWithFormat:@"%@",packageDependencies]];
-    for (id object in packageDependencies) {
-        object = [object stringByReplacingOccurrencesOfString:@"\n" withString:@""];
-        NSString *noSpace = object;
-        if([object rangeOfString:@" "].location != NSNotFound) noSpace = [[object substringToIndex:[object rangeOfString:@" "].location] stringByReplacingOccurrencesOfString:@" " withString:@""];
-        if([object isEqualToString:noSpace] && ![self isPackageInstalled:object]) [missingDependencies addObject:object];
-        if(![object isEqualToString:noSpace] && ![self isPackageInstalled:noSpace]) {
-            NSString *version = [object substringFromIndex:[object rangeOfString:@"("].location];
-            NSString *compare = [NSString stringWithFormat:@"%@ %@",[[UIDevice currentDevice] systemVersion],[[version stringByReplacingOccurrencesOfString:@"(" withString:@""] stringByReplacingOccurrencesOfString:@")" withString:@""]];
-            if([noSpace isEqualToString:@"firmware"] && [self returnOfCommand:@"/usr/bin/dpkg" withArguments:@[@"--compare-versions", compare]] != 0) [self messageWithTitle:@"Error" message:@"This package requires a newer or older version of iOS."];
-            else if(![noSpace isEqualToString:@"firmware"] && [self returnOfCommand:@"/usr/bin/dpkg" withArguments:@[@"--compare-versions", compare]] != 0) [missingDependencies addObject:noSpace];
-        }
-    }
-    [self messageWithTitle:@"Missing dependencies" message:[NSString stringWithFormat:@"%@",missingDependencies]];*/
-    // ---- END OF DEPENDENCIES ARTIKUS AGAIN THE END IS HERE NOT SOME OTHER WHERE ELSE ---- //
     // Check for needed directories
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
+    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos/updates" isDirectory:nil]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/updates" withIntermediateDirectories:NO attributes:nil error:nil];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
-    // Get third party source list
-    if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
-        NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
-        sources = [sources substringToIndex:sources.length - 1];
-        // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
-        _sourcesViewController.sourceLinks = [[NSMutableArray alloc] initWithArray:[sources componentsSeparatedByString:@"\n"]];
-    }
-    _sourcesViewController.sources = [[NSMutableArray alloc] init];
-    for(id object in [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"]) [_sourcesViewController.sources addObject:object];
-    BOOL isDirectory;
-    // Check for needed directories
-    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy" withIntermediateDirectories:NO attributes:nil error:nil];
-    if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/Repos" isDirectory:&isDirectory]) [[NSFileManager defaultManager] createDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" withIntermediateDirectories:NO attributes:nil error:nil];
+    
     // Redirect log to a file
     freopen([@"/var/mobile/Media/Icy/log.txt" cStringUsingEncoding:NSASCIIStringEncoding],"a+",stderr);
-    [_manageViewController.manageTableView reloadData];
-    [_sourcesViewController.sourcesTableView reloadData];
-    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [[[HomeViewController alloc] init].welcomeWebView stringByEvaluatingJavaScriptFromString:@"document.body.style.background = 'black'; var p = document.getElementsByTagName('p'); for (var i = 0; i < p.length; i++) { p[i].style.color = 'white'; }"];
+    [[SourcesViewController getSourcesTableView] reloadData];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [self switchToDarkMode];
+    else [self switchToLightMode];
 }
 
 UIAlertView *respringAlert;
@@ -220,12 +191,14 @@ UIAlertView *respringAlert;
     if([_aboutButton.currentTitle isEqualToString:@"Dark"]) {
         [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
         [self switchToDarkMode];
+        exit(0);
     } else if([_aboutButton.currentTitle isEqualToString:@"Light"]) {
         [_aboutButton setTitle:@"Dark" forState:UIControlStateNormal];
         [self switchToLightMode];
-    } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && _searchViewController.depictionWebView.hidden) {
+        exit(0);
+    } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && [SearchViewController getDepictionWebView].hidden) {
         [self messageWithTitle:@"Error" message:@"You need to search for a package first."];
-    } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && !_searchViewController.depictionWebView.hidden) {
+    } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && ![SearchViewController getDepictionWebView].hidden) {
         SearchViewController *searchViewController = [[SearchViewController alloc] init];
         [searchViewController downloadWithProgressAndURLString:[[SearchViewController getSearchFilenames] objectAtIndex:[SearchViewController getPackageIndex]] saveFilename:@"downloaded.deb"];
     } else if([_aboutButton.currentTitle isEqualToString:@"Backup"]){
@@ -250,48 +223,48 @@ UIAlertView *respringAlert;
 
 #pragma mark - Dark/light modes
 
-/*- (void)switchToDarkMode {
+- (void)switchToDarkMode {
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"darkMode"];
     [[NSUserDefaults standardUserDefaults] synchronize];
-    darkMode = YES;
-    //_aboutButton.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
-    //_aboutButton.titleLabel.textColor = [UIColor orangeColor];
+    _aboutButton.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
+    [_aboutButton setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
     [_toolbar setBarTintColor:[UIColor blackColor]];
     _nameLabel.textColor = [UIColor whiteColor];
-    //_dateLabel.textColor = [UIColor grayColor];
+    _navigationBar.backgroundColor = [UIColor blackColor];
+    _tabbar.tintColor = [UIColor orangeColor];
+    _tabbar.barTintColor = [UIColor blackColor];
     self.view.backgroundColor = [UIColor blackColor];
-    _tableView.backgroundColor = [UIColor blackColor];
-    _tableView2.backgroundColor = [UIColor blackColor];
-    _tableView3.backgroundColor = [UIColor blackColor];
-    _searchField.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
-    _searchField.textColor = [UIColor whiteColor];
-    infoView.backgroundColor = [UIColor blackColor];
-    [_welcomeWebView stringByEvaluatingJavaScriptFromString:@"document.body.style.background = 'black'; var p = document.getElementsByTagName('p'); for (var i = 0; i < p.length; i++) { p[i].style.color = 'white'; }"];
-    _searchField.keyboardAppearance = UIKeyboardAppearanceDark;
-    [self homeAction];
+    [HomeViewController getWelcomeWebView].backgroundColor = [UIColor blackColor];
+    [_homeViewController load];
+    _sourcesViewController.view.backgroundColor = [UIColor blackColor];
+    _manageViewController.view.backgroundColor = [UIColor blackColor];
+    _searchViewController.view.backgroundColor = [UIColor blackColor];
+    [SearchViewController getDismiss].backgroundColor = [UIColor blackColor];
+    [SearchViewController getSearchField].textColor = [UIColor whiteColor];
+    [SearchViewController getSearchField].keyboardAppearance = UIKeyboardAppearanceDark;
+    [self setNeedsStatusBarAppearanceUpdate];
 }
 
 - (void)switchToLightMode {
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"darkMode"];
     [[NSUserDefaults standardUserDefaults] synchronize];
-    darkMode = NO;
-    //_aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
-    //_aboutButton.titleLabel.textColor = [UIColor blueColor];
+    _aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
+    [_aboutButton setTitleColor:[UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0] forState:UIControlStateNormal];
     [_toolbar setBarTintColor:[UIColor whiteColor]];
     _nameLabel.textColor = [UIColor blackColor];
-    //_dateLabel.textColor = [UIColor grayColor];
+    _navigationBar.backgroundColor = [UIColor whiteColor];
+    _tabbar.tintColor = [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
+    _tabbar.barTintColor = [UIColor whiteColor];
     self.view.backgroundColor = [UIColor whiteColor];
-    _tableView.backgroundColor = [UIColor whiteColor];
-    _tableView2.backgroundColor = [UIColor whiteColor];
-    _tableView3.backgroundColor = [UIColor whiteColor];
-    _searchField.backgroundColor = [UIColor whiteColor];
-    _searchField.textColor = [UIColor blackColor];
-    _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
-    infoView.backgroundColor = [UIColor whiteColor];
-    [_welcomeWebView reload];
-    _searchField.keyboardAppearance = UIKeyboardAppearanceLight;
-    [self homeAction];
-}*/
+    [_homeViewController load];
+    _sourcesViewController.view.backgroundColor = [UIColor whiteColor];
+    _manageViewController.view.backgroundColor = [UIColor whiteColor];
+    _searchViewController.view.backgroundColor = [UIColor whiteColor];
+    [SearchViewController getDismiss].backgroundColor = [UIColor whiteColor];
+    [SearchViewController getSearchField].textColor = [UIColor blackColor];
+    [SearchViewController getSearchField].keyboardAppearance = UIKeyboardAppearanceLight;
+    [self setNeedsStatusBarAppearanceUpdate];
+}
 
 #pragma mark - Navigation methods
 
@@ -302,8 +275,8 @@ UIAlertView *respringAlert;
     else if(tabBar.selectedItem.tag == 1) [self sourcesAction];
     else if(tabBar.selectedItem.tag == 2) [self manageAction];
     else if(tabBar.selectedItem.tag == 3) [self searchAction];
-    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _aboutButton.titleLabel.textColor = [UIColor orangeColor];
-    else _aboutButton.titleLabel.textColor = coolerBlueColor;
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [_aboutButton setTitleColor:[UIColor orangeColor] forState:UIControlStateNormal];
+    else [_aboutButton setTitleColor:[UIColor colorWithRed:0.00 green:0.52 blue:1.00 alpha:1.0] forState:UIControlStateNormal];
     [self.view bringSubviewToFront:_tabbar];
     [self.view bringSubviewToFront:_navigationBar];
 }
@@ -338,7 +311,6 @@ UIAlertView *respringAlert;
 - (void)messageWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title message:message delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:nil];
     [alert show];
-    //_aboutButton.titleLabel.textColor = coolerBlueColor;
 }
 
 - (void)makeViewRound:(UIView *)view withRadius:(int)radius {
@@ -348,74 +320,43 @@ UIAlertView *respringAlert;
 
 #pragma mark - UI Orientation methods
 
-/*- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
+- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
-    if(UIInterfaceOrientationIsPortrait(toInterfaceOrientation)){
+    if(UIInterfaceOrientationIsPortrait(toInterfaceOrientation)) {
         [self changeToPortrait];
     }
-    else if(UIInterfaceOrientationIsLandscape(toInterfaceOrientation)){
+    else if(UIInterfaceOrientationIsLandscape(toInterfaceOrientation)) {
         [self changeToLandscape];
     }
 }
 
 - (void)changeToPortrait {
-    //_aboutButton.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 120,55,75,30);
-    _nameLabel.frame = CGRectMake(26,50,[UIScreen mainScreen].bounds.size.width,40);
-    //_dateLabel.frame = CGRectMake(26,26,[UIScreen mainScreen].bounds.size.width,20);
-    _welcomeWebView.frame = CGRectMake(0,120,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 200);
-    _homeImage.frame = CGRectMake(30,10,32,32);
-    _homeLabel.frame = CGRectMake(27,45,40,10);
-    _sourcesImage.frame = CGRectMake([UIScreen mainScreen].bounds.size.width / 2 - 16, 10, 32, 32);
-    _sourcesLabel.frame = CGRectMake([UIScreen mainScreen].bounds.size.width / 2 - 25,45,50,10);
-    _manageImage.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 62,10,32,32);
-    _manageLabel.frame = CGRectMake([UIScreen mainScreen].bounds.size.width - 70,40,50,20);
-    _tableView.frame = CGRectMake(13,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 200);
-    _tableView2.frame = CGRectMake(13,140,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 220);
-    _searchField.frame = CGRectMake(20,120,[UIScreen mainScreen].bounds.size.width - 40,20);
+    if([SearchViewController getProgressTextView].text.length > 2) return;
+    else [SearchViewController dismissDepiction];
+    _tabbar.frame = CGRectMake(0, [UIScreen mainScreen].bounds.size.height - 49, [UIScreen mainScreen].bounds.size.width, 50);
+    _navigationBar.frame = CGRectMake(_navigationBar.frame.origin.x, _navigationBar.frame.origin.y, [UIScreen mainScreen].bounds.size.width, 100);
+    [HomeViewController getWelcomeWebView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
+    [SourcesViewController getSourcesTableView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
+    [ManageViewController getManageTableView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
+    [SearchViewController getSearchField].frame = CGRectMake(15,100,[UIScreen mainScreen].bounds.size.width - 30,35);
+    [SearchViewController getSearchTableView].frame = CGRectMake(0,150,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
+    [ManageViewController dismissInfo];
 }
 
 - (void)changeToLandscape {
-    //_aboutButton.frame = CGRectMake([UIScreen mainScreen].bounds.size.height - 120,55,75,30);
-    _nameLabel.frame = CGRectMake(26,50,[UIScreen mainScreen].bounds.size.height,40);
-    //_dateLabel.frame = CGRectMake(26,26,[UIScreen mainScreen].bounds.size.height,20);
-    _welcomeWebView.frame = CGRectMake(0,120,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 200);
-    _homeImage.frame = CGRectMake(30,10,32,32);
-    _homeLabel.frame = CGRectMake(27,45,40,10);
-    _sourcesImage.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 2 - 16, 10, 32, 32);
-    _sourcesLabel.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 2 - 25,45,50,10);
-    _manageImage.frame = CGRectMake([UIScreen mainScreen].bounds.size.height - 62,10,32,32);
-    _manageLabel.frame = CGRectMake([UIScreen mainScreen].bounds.size.height - 70,40,50,20);
-    _tableView.frame = CGRectMake(13,100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 200);
-    _tableView2.frame = CGRectMake(13,140,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 220);
-    _searchField.frame = CGRectMake(20,120,[UIScreen mainScreen].bounds.size.height - 40,20);
-}*/
+    if([SearchViewController getProgressTextView].text.length > 2) return;
+    else [SearchViewController dismissDepiction];
+    _tabbar.frame = CGRectMake(0, [UIScreen mainScreen].bounds.size.width - 49, [UIScreen mainScreen].bounds.size.height, 50);
+    _navigationBar.frame = CGRectMake(_navigationBar.frame.origin.x, _navigationBar.frame.origin.y, [UIScreen mainScreen].bounds.size.height, 100);
+    [HomeViewController getWelcomeWebView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 100);
+    [SourcesViewController getSourcesTableView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 100);
+    [ManageViewController getManageTableView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 100);
+    [SearchViewController getSearchField].frame = CGRectMake(15,100,[UIScreen mainScreen].bounds.size.height - 30,35);
+    [SearchViewController getSearchTableView].frame = CGRectMake(0,150,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 100);
+    [ManageViewController dismissInfo];
+}
 
 #pragma mark - Random backend methods
-
-- (NSString *)versionOfPackage:(NSString *)package {
-    FILE *file = fopen("/var/lib/dpkg/status", "r");
-    char str[999];
-    const char *pkgsearch = [[NSString stringWithFormat:@"Package: %@\n",package] UTF8String];
-    BOOL shouldReturn = NO;
-    while(fgets(str, 999, file) != NULL) {
-        if(strcmp(str, pkgsearch) == 0) shouldReturn = YES;
-        if(shouldReturn && strstr(str, "Version:")) return [[NSString stringWithCString:str encoding:NSUTF8StringEncoding] stringByReplacingOccurrencesOfString:@"Version: " withString:@""];
-    }
-    return @"No such package";
-}
-
-- (BOOL)isPackageInstalled:(NSString *)package {
-    if([[self runCommandWithOutput:@"/usr/bin/dpkg" withArguments:@[@"-s", package] errors:YES] rangeOfString:@"is not installed"].location == NSNotFound) return YES;
-    FILE *file = fopen("/var/lib/dpkg/status", "r");
-    char str[999];
-    const char *search = [package UTF8String];
-    while(fgets(str, 999, file) != NULL) {
-        if(strstr(str, "Provides:") && strstr(str, search)) return YES;
-        if(strstr(str, "Replaces:") && strstr(str, search)) return YES;
-    }
-    return NO;
-}
-
 - (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors {
     NSTask *task = [[NSTask alloc] init];
     [task setLaunchPath:command];
@@ -430,16 +371,6 @@ UIAlertView *respringAlert;
     [task release];
     if(errors) return [[[NSString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
     else return [[[NSString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding] autorelease];
-}
-
-- (NSInteger)returnOfCommand:(NSString *)command withArguments:(NSArray *)args {
-    NSTask *task = [[NSTask alloc] init];
-    [task setLaunchPath:command];
-    [task setCurrentDirectoryPath:@"/"];
-    [task setArguments:args];
-    [task launch];
-    [task waitUntilExit];
-    return [task terminationStatus];
 }
 
 #pragma mark - Random methods
@@ -465,6 +396,11 @@ OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
 - (NSString *)uniqueDeviceID {
     CFStringRef udid = MGCopyAnswer(CFSTR("UniqueDeviceID"));
     return (NSString *)udid;
+}
+
+- (UIStatusBarStyle)preferredStatusBarStyle {
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) return UIStatusBarStyleLightContent;
+    else return UIStatusBarStyleDefault;
 }
 
 @end

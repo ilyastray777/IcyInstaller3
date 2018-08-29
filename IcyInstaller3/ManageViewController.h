@@ -12,10 +12,9 @@
 
 @interface ManageViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
 
++ (void)dismissInfo;
++ (UITableView *)getManageTableView;
 - (void)removePackageButtonAction;
 - (void)removePackageWithBundleID:(NSString *)bundleID;
-@property (strong, nonatomic) IcyPackageList *packageList;
-@property (strong, nonatomic) UIWebView *packageWebView;
-@property (strong, nonatomic) UITableView *manageTableView;
 
 @end

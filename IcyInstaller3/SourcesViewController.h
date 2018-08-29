@@ -14,7 +14,7 @@
 @interface SourcesViewController : UIViewController <UITableViewDataSource, UITableViewDelegate, UIAlertViewDelegate>
 
 - (void)manage;
-@property (strong, nonatomic) UITableView *sourcesTableView;
++ (UITableView *)getSourcesTableView;
 @property (strong, nonatomic) NSMutableArray *sources;
 @property (strong, nonatomic) NSMutableArray *sourceLinks;
 @property (strong, nonatomic) NSString *deviceModel;

@@ -15,6 +15,11 @@
 
 @implementation ManageViewController
 ViewController *_viewController;
+UITableView *_manageTableView;
+IcyPackageList *_packageList;
+UIWebView *_packageWebView;
+
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Initialize view controller and package list
@@ -28,12 +33,21 @@ ViewController *_viewController;
     _manageTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
     _manageTableView.delegate = self;
     _manageTableView.dataSource = self;
-    _manageTableView.backgroundColor = [UIColor whiteColor];
+    _manageTableView.backgroundColor = [UIColor clearColor];
     [_manageTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     _manageTableView.contentInset = UIEdgeInsetsMake(0,0,60,0);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
+        if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _manageTableView.contentInset = UIEdgeInsetsMake(0,-160,60,0);
+        else _manageTableView.contentInset = UIEdgeInsetsMake(0,-30,60,0);
+    }
     [self.view addSubview:_manageTableView];
     [self.view bringSubviewToFront:_manageTableView];
     [_manageTableView reloadData];
+}
+
+
++ (UITableView *)getManageTableView {
+    return _manageTableView;
 }
 
 - (NSInteger)tableView:(UITableView *)theTableView numberOfRowsInSection:(NSInteger)section {
@@ -79,9 +93,13 @@ BOOL infoPresent = NO;
     infoPresent = YES;
     removeIndex = (int)indexPath.row;
     _viewController.nameLabel.text = [_manageTableView cellForRowAtIndexPath:indexPath].textLabel.text;
-    UIView *infoTextView = [[UIView alloc] initWithFrame:CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height / 2 - 50 + 1)];
+    UIView *infoTextView = [[UIView alloc] init];
+    if (CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) infoTextView.frame = CGRectMake(15,10,[UIScreen mainScreen].bounds.size.height - 30,[UIScreen mainScreen].bounds.size.width / 2 - 50 + 1);
+    else infoTextView.frame = CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height / 2 - 50 + 1);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) infoTextView.frame = CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height - 320);
     [_viewController makeViewRound:infoTextView withRadius:10];
     infoView = [[UIView alloc] initWithFrame:CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100)];
+    if (CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) infoView.frame = CGRectMake(0,-[UIScreen mainScreen].bounds.size.width - 100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.height - 100);
     [infoView addSubview:infoTextView];
     [self.view addSubview:infoView];
     infoText = [[UITextView alloc] initWithFrame:infoTextView.bounds];
@@ -101,6 +119,8 @@ BOOL infoPresent = NO;
     [_viewController makeViewRound:infoText withRadius:10];
     [infoTextView addSubview:infoText];
     UIButton *remove = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 200,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) remove.frame = CGRectMake(20,infoView.bounds.size.height - 90,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) remove.frame = CGRectMake(20,infoView.bounds.size.height - 200,[UIScreen mainScreen].bounds.size.width - 40,40);
     remove.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [remove setTitle:@"Remove" forState:UIControlStateNormal];
     [_viewController makeViewRound:remove withRadius:5];
@@ -109,6 +129,8 @@ BOOL infoPresent = NO;
     [remove addTarget:self action:@selector(removePackageButtonAction) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:remove];
     UIButton *more = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 3 + 10,infoView.bounds.size.height - 90,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake(20,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 40,40);
     more.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [more setTitle:@"More info" forState:UIControlStateNormal];
     [more setTitle:@"More info unavailable" forState:UIControlStateDisabled];
@@ -120,20 +142,24 @@ BOOL infoPresent = NO;
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:more];
     UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) dismiss.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 1.5,infoView.bounds.size.height - 90,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) dismiss.frame = CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40);
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) dismiss.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     else dismiss.backgroundColor = [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
     [dismiss setTitle:@"Dismiss" forState:UIControlStateNormal];
     [_viewController makeViewRound:dismiss withRadius:5];
     [dismiss.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [dismiss setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [dismiss addTarget:self action:@selector(dismissInfo) forControlEvents:UIControlEventTouchUpInside];
+    [dismiss addTarget:[self class] action:@selector(dismissInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:dismiss];
     NSString *info = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:indexPath.row]] full:NO];
     if([info rangeOfString:@"hasdepiction"].location != NSNotFound) more.enabled = YES;
     info = [info stringByReplacingOccurrencesOfString:@"hasdepiction" withString:@""];
     infoText.text = info;
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
-        infoView.frame  = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
+        if (CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) infoView.frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 100);
+        else infoView.frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
+
     } completion:nil];
 }
 
@@ -142,6 +168,9 @@ BOOL infoPresent = NO;
         [_viewController messageWithTitle:@"Error" message:@"This action requires an internet connection. If you are connected to the internet, but the problem still occurs, try relaunching Icy."];
         return;
     }
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _packageWebView.frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 200);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _packageWebView.frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 200);
+    else _packageWebView.frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 210);
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
     char search[999];
@@ -178,7 +207,7 @@ BOOL infoPresent = NO;
     return info;
 }
 
-- (void)dismissInfo {
++ (void)dismissInfo {
     _packageWebView.hidden = YES;
     [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
         infoView.frame  = CGRectMake(0,-[UIScreen mainScreen].bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 161);

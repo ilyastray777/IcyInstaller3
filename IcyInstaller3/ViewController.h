@@ -14,7 +14,6 @@
 
 // Methods
 + (UIButton *)getAboutButton;
-- (BOOL)isPackageInstalled:(NSString *)package;
 - (BOOL)isNetworkAvailable;
 - (void)makeViewRound:(UIView *)view withRadius:(int)radius;
 - (void)messageWithTitle:(NSString *)title message:(NSString *)message;

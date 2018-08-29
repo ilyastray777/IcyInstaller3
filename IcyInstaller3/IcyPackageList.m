@@ -17,7 +17,7 @@
     // This array is created on this class and than assigned to self.packageNames
     // You'll ask why?
     // The shit is, I simply can NOT addObject on packageNames after removing a package. This bug occurs ONLY in self.packageNames and not any other arrays.
-    // I, however, can assign the value ofself.packageNames to names. That's what I'm doing, and that's what surprisingly works :P
+    // I, however, can assign the value of self.packageNames to names. That's what I'm doing, and that's what surprisingly works :P
     NSMutableArray *names = [[NSMutableArray alloc] init];
     FILE *file = fopen("/var/lib/dpkg/status", "r");
     char str[999];
@@ -35,8 +35,10 @@
         if(strlen(str) < 2 && names.count > 0) {
             NSString *lastObject = [names lastObject];
             [names sortUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
-            [self.packageIDs insertObject:lastID atIndex:[names indexOfObject:lastObject]];
-            [self.packageIcons insertObject:icon atIndex:[names indexOfObject:lastObject]];
+            if(self.packageIDs.count < names.count) {
+                [self.packageIDs insertObject:lastID atIndex:[names indexOfObject:lastObject]];
+                [self.packageIcons insertObject:icon atIndex:[names indexOfObject:lastObject]];
+            }
         }
     }
     self.packageNames = names;

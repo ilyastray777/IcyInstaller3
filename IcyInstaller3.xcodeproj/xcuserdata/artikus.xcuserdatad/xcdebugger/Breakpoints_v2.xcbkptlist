@@ -9,13 +9,13 @@
             shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "IcyInstaller3/ViewController.m"
-            timestampString = "554203661.815729"
+            filePath = "IcyInstaller3/ManageViewController.m"
+            timestampString = "557139729.5285749"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "302"
-            endingLineNumber = "302"
-            landmarkName = "-tabBar:didSelectItem:"
+            startingLineNumber = "169"
+            endingLineNumber = "169"
+            landmarkName = "-moreInfo"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
