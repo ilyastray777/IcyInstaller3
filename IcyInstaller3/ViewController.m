@@ -30,6 +30,43 @@
 @property (strong, nonatomic) ManageViewController *manageViewController;
 @end
 
+// Graceful closuer (by midnightchips)
+@interface UIApplication (existing)
+- (void)suspend;
+- (void)terminateWithSuccess;
+@end
+@interface UIApplication (close)
+- (void)close;
+@end
+@implementation UIApplication (close)
+
+- (void)close {
+    // Check if the current device supports background execution.
+    BOOL multitaskingSupported = NO;
+    // iOS < 4.0 compatibility check.
+    if ([[UIDevice currentDevice] respondsToSelector:@selector(isMultitaskingSupported)]) multitaskingSupported = [UIDevice currentDevice].multitaskingSupported;
+    // Good practice, we're using a private method.
+    if ([self respondsToSelector:@selector(suspend)]) {
+        if (multitaskingSupported) {
+            [self beginBackgroundTaskWithExpirationHandler:^{}];
+            // Change the delay to your liking. I think 0.4 seconds feels just right (the "close" animation lasts 0.3 seconds).
+            [self performSelector:@selector(exit) withObject:nil afterDelay:0.4];
+        }
+        [self suspend];
+    }
+    else [self exit];
+}
+
+- (void)exit {
+    // Again, good practice.
+    if ([self respondsToSelector:@selector(terminateWithSuccess)])
+        [self terminateWithSuccess];
+    else
+        exit(EXIT_SUCCESS);
+}
+
+@end
+
 @implementation ViewController
 UIButton *_aboutButton;
 NSUInteger oldApplications;
@@ -63,20 +100,14 @@ NSUInteger oldTweaks;
     [self.view addSubview:_navigationBar];
     // Progress View
     // The button at the right
-    _aboutButton = [[UIButton alloc] initWithFrame:CGRectMake(0,0,75,30)];
+    _aboutButton = [[UIButton alloc] initWithFrame:CGRectMake([UIScreen mainScreen].bounds.size.width - 90,58,75,30)];
     _aboutButton.backgroundColor = [[UIColor blueColor] colorWithAlphaComponent:0.1];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
     else [_aboutButton setTitle:@"Dark" forState:UIControlStateNormal];
     [_aboutButton setTitleColor:[UIColor colorWithRed:0.00 green:0.52 blue:1.00 alpha:1.0] forState:UIControlStateNormal];
     [_aboutButton addTarget:self action:@selector(about) forControlEvents:UIControlEventTouchUpInside];
     [self makeViewRound:_aboutButton withRadius:5];
-    UIView *aboutButtonView = [[UIView alloc] initWithFrame:_aboutButton.bounds];
-    aboutButtonView.bounds = CGRectOffset(_aboutButton.bounds, 0, 6);
-    [aboutButtonView addSubview:_aboutButton];
-    _rightItem = [[UIBarButtonItem alloc] initWithCustomView:aboutButtonView];
-    UINavigationItem *right = [[UINavigationItem alloc] initWithTitle:@""];
-    right.rightBarButtonItem = _rightItem;
-    [_navigationBar setItems:@[right]];
+    [_navigationBar addSubview:_aboutButton];
     // The top label
     _nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,[UIScreen mainScreen].bounds.size.width - 130,40)];
     _nameLabel.backgroundColor = [UIColor clearColor];
@@ -191,11 +222,13 @@ UIAlertView *respringAlert;
     if([_aboutButton.currentTitle isEqualToString:@"Dark"]) {
         [_aboutButton setTitle:@"Light" forState:UIControlStateNormal];
         [self switchToDarkMode];
-        exit(0);
+        [[UIApplication sharedApplication] close];
+        [[UIApplication sharedApplication] terminateWithSuccess];
     } else if([_aboutButton.currentTitle isEqualToString:@"Light"]) {
         [_aboutButton setTitle:@"Dark" forState:UIControlStateNormal];
         [self switchToLightMode];
-        exit(0);
+        [[UIApplication sharedApplication] close];
+        [[UIApplication sharedApplication] terminateWithSuccess];
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && [SearchViewController getDepictionWebView].hidden) {
         [self messageWithTitle:@"Error" message:@"You need to search for a package first."];
     } else if([_aboutButton.currentTitle isEqualToString:@"Install"] && ![SearchViewController getDepictionWebView].hidden) {
@@ -320,20 +353,23 @@ UIAlertView *respringAlert;
 
 #pragma mark - UI Orientation methods
 
-- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
+// Buggy. Way too buggy.
+/*- (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
-    if(UIInterfaceOrientationIsPortrait(toInterfaceOrientation)) {
-        [self changeToPortrait];
-    }
-    else if(UIInterfaceOrientationIsLandscape(toInterfaceOrientation)) {
-        [self changeToLandscape];
-    }
+    if(UIInterfaceOrientationIsPortrait(toInterfaceOrientation)) [self changeToPortrait];
+    else if(UIInterfaceOrientationIsLandscape(toInterfaceOrientation)) [self changeToLandscape];
+}*/
+
+- (BOOL)shouldAutorotate {
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) return NO;
+    else return YES;
 }
 
 - (void)changeToPortrait {
     if([SearchViewController getProgressTextView].text.length > 2) return;
     else [SearchViewController dismissDepiction];
     _tabbar.frame = CGRectMake(0, [UIScreen mainScreen].bounds.size.height - 49, [UIScreen mainScreen].bounds.size.width, 50);
+    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) _tabbar.frame = CGRectMake(0, [UIScreen mainScreen].bounds.size.width - 49, [UIScreen mainScreen].bounds.size.height, 50);
     _navigationBar.frame = CGRectMake(_navigationBar.frame.origin.x, _navigationBar.frame.origin.y, [UIScreen mainScreen].bounds.size.width, 100);
     [HomeViewController getWelcomeWebView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);
     [SourcesViewController getSourcesTableView].frame = CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100);

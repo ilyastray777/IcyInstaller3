@@ -14,6 +14,8 @@
 @end
 
 @implementation ManageViewController
+#define SYSTEM_VERSION_LESS_THAN(v) ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
+
 ViewController *_viewController;
 UITableView *_manageTableView;
 IcyPackageList *_packageList;
@@ -119,7 +121,7 @@ BOOL infoPresent = NO;
     [_viewController makeViewRound:infoText withRadius:10];
     [infoTextView addSubview:infoText];
     UIButton *remove = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 200,[UIScreen mainScreen].bounds.size.width - 40,40)];
-    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) remove.frame = CGRectMake(20,infoView.bounds.size.height - 90,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) remove.frame = CGRectMake(20,infoView.bounds.size.height - 340,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
     if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) remove.frame = CGRectMake(20,infoView.bounds.size.height - 200,[UIScreen mainScreen].bounds.size.width - 40,40);
     remove.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [remove setTitle:@"Remove" forState:UIControlStateNormal];
@@ -129,7 +131,7 @@ BOOL infoPresent = NO;
     [remove addTarget:self action:@selector(removePackageButtonAction) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:remove];
     UIButton *more = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 40,40)];
-    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 3 + 10,infoView.bounds.size.height - 90,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 3 + 10,infoView.bounds.size.height - 340,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
     if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake(20,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 40,40);
     more.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [more setTitle:@"More info" forState:UIControlStateNormal];
@@ -142,7 +144,7 @@ BOOL infoPresent = NO;
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
     [infoView addSubview:more];
     UIButton *dismiss = [[UIButton alloc] initWithFrame:CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40)];
-    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) dismiss.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 1.5,infoView.bounds.size.height - 90,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
+    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) dismiss.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 1.5,infoView.bounds.size.height - 340,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
     if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) dismiss.frame = CGRectMake(20,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 40,40);
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) dismiss.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     else dismiss.backgroundColor = [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
@@ -222,7 +224,9 @@ BOOL infoPresent = NO;
 NSMutableArray *dependencies;
 UIAlertView *dependencyAlert;
 - (void)removePackageWithBundleID:(NSString *)bundleID {
-    NSString *output = [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", bundleID] errors:YES];
+    NSString *output = nil;
+    if(SYSTEM_VERSION_LESS_THAN(@"11.0")) output = [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", bundleID] errors:YES];
+    else [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze11"] withArguments:@[@"-r", bundleID] errors:YES];
     // If the command had dependency errors we do some extra stuff to remove dependencies too
     if([output rangeOfString:@"dpkg: dependency problems prevent removal"].location != NSNotFound) {
         output = [output stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"dpkg: dependency problems prevent removal of %@:\n",bundleID] withString:@""];

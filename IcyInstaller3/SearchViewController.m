@@ -17,6 +17,8 @@
 @end
 
 @implementation SearchViewController
+#define SYSTEM_VERSION_LESS_THAN(v) ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
+
 UITableView *_searchTableView;
 UIWebView *_depictionWebView;
 static int _packageIndex;
@@ -367,7 +369,9 @@ BOOL options = NO;
         ViewController *viewController = [[ViewController alloc] init];
         // Install
         progressTextView.text = [progressTextView.text stringByAppendingString:@"\nPreparing to run freeze binary...\n"];
-        NSString *out = [viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:YES];
+        NSString *out = nil;
+        if(SYSTEM_VERSION_LESS_THAN(@"11.0")) out = [viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:YES];
+        else out = [viewController runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze11"] withArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"] errors:YES];
         [viewController reload];
         [[NSFileManager defaultManager] removeItemAtPath:@"/var/mobile/Media/downloaded.deb" error:nil];
         progressTextView.text = [progressTextView.text stringByAppendingString:[@"\n" stringByAppendingString:out]];
