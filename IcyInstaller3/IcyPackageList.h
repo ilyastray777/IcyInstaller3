@@ -10,8 +10,15 @@
 
 @interface IcyPackageList : NSObject
 
+// Variables
+
 @property (strong, nonatomic) NSMutableArray *packageIDs;
 @property (strong, nonatomic) NSMutableArray *packageNames;
 @property (strong, nonatomic) NSMutableArray *packageIcons;
+@property (strong, nonatomic) NSMutableArray *packageDescs;
+
+// Methods
+
+- (void)load;
 
 @end

@@ -11,9 +11,16 @@
 @implementation IcyPackageList
 
 - (id)init {
+    // Using a separate method so I can reload the thing from another class
+    [self load];
+    return self;
+}
+
+- (void)load {
     self.packageIDs = [[NSMutableArray alloc] init];
     self.packageIcons = [[NSMutableArray alloc] init];
     self.packageNames = [[NSMutableArray alloc] init];
+    self.packageDescs = [[NSMutableArray alloc] init];
     // This array is created on this class and than assigned to self.packageNames
     // You'll ask why?
     // The shit is, I simply can NOT addObject on packageNames after removing a package. This bug occurs ONLY in self.packageNames and not any other arrays.
@@ -23,9 +30,11 @@
     char str[999];
     NSString *icon = nil;
     NSString *lastID = nil;
+    NSString *lastDesc = nil;
     while(fgets(str, 999, file) != NULL) {
         if(strstr(str, "Package:")) lastID = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Package: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strstr(str, "Name:")) [names addObject:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Name: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+        if(strstr(str, "Description:")) lastDesc = [[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Description: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""];
         if(strstr(str, "Section:")) {
             icon = [NSString stringWithFormat:@"/Applications/IcyInstaller3.app/icons/%@.png",[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] stringByReplacingOccurrencesOfString:@"Section: " withString:@""] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
             if([icon rangeOfString:@" "].location != NSNotFound) icon = [NSString stringWithFormat:@"%@.png",[icon substringToIndex:[icon rangeOfString:@" "].location]];
@@ -38,12 +47,12 @@
             if(self.packageIDs.count < names.count) {
                 [self.packageIDs insertObject:lastID atIndex:[names indexOfObject:lastObject]];
                 [self.packageIcons insertObject:icon atIndex:[names indexOfObject:lastObject]];
+                [self.packageDescs insertObject:lastDesc atIndex:[names indexOfObject:lastObject]];
             }
         }
     }
     self.packageNames = names;
     fclose(file);
-    return self;
 }
 
 @end

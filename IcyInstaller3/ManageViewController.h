@@ -8,13 +8,11 @@
 
 #import <UIKit/UIKit.h>
 #import "IcyPackageList.h"
-#import "ViewController.h"
+#import "PackageInfoViewController.h"
 
 @interface ManageViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
 
-+ (void)dismissInfo;
 + (UITableView *)getManageTableView;
-- (void)removePackageButtonAction;
-- (void)removePackageWithBundleID:(NSString *)bundleID;
+- (void)refreshList;
 
 @end

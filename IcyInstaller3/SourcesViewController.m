@@ -7,13 +7,14 @@
 //
 
 #import "SourcesViewController.h"
-#import "ViewController.h"
+#import "IcyUniversalMethods.h"
 
 @interface SourcesViewController ()
 @end
 
 @implementation SourcesViewController
 UITableView *_sourcesTableView;
+UIRefreshControl *sourcesRefreshControl;
 
 - (id)init {
     if(self = [super init]) {
@@ -52,17 +53,33 @@ UITableView *_sourcesTableView;
     self.sources = [[NSMutableArray alloc] init];
     for(id object in [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"]) [self.sources addObject:object];
     // The tableview
-    _sourcesTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,100,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
+    _sourcesTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height) style:UITableViewStylePlain];
     _sourcesTableView.delegate = self;
     _sourcesTableView.dataSource = self;
-    _sourcesTableView.backgroundColor = [UIColor clearColor];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _sourcesTableView.backgroundColor = [UIColor blackColor];
     [_sourcesTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
-    _sourcesTableView.contentInset = UIEdgeInsetsMake(0,0,60,0);
+    _sourcesTableView.contentInset = UIEdgeInsetsMake(64,0,60,0);
     if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
         if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _sourcesTableView.contentInset = UIEdgeInsetsMake(0,-160,60,0);
         else _sourcesTableView.contentInset = UIEdgeInsetsMake(0,-30,60,0);
     }
+    sourcesRefreshControl = [[UIRefreshControl alloc] init];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [sourcesRefreshControl setTintColor:[UIColor whiteColor]];
+    [_sourcesTableView addSubview:sourcesRefreshControl];
+    [sourcesRefreshControl addTarget:self action:@selector(refreshSources) forControlEvents:UIControlEventValueChanged];
     [self.view addSubview:_sourcesTableView];
+    // Navbar
+    UINavigationBar *sourcesNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,64)];
+    UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Sources"];
+    UIBarButtonItem *manageButton = [[UIBarButtonItem alloc] initWithTitle:@"Manage" style:UIBarButtonItemStylePlain target:self action:@selector(manage)];
+    titleNavigationItem.rightBarButtonItem = manageButton;
+    [sourcesNavigationBar setItems:@[titleNavigationItem]];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
+        sourcesNavigationBar.tintColor = [UIColor orangeColor];
+        sourcesNavigationBar.barTintColor = [UIColor blackColor];
+        sourcesNavigationBar.barStyle = UIBarStyleBlack;
+    }
+    [self.view addSubview:sourcesNavigationBar];
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)theTableView {
@@ -75,9 +92,9 @@ UITableView *_sourcesTableView;
 
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *cellIdentifier = @"cell";
-    UITableViewCell *cell = (UITableViewCell *)[theTableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    UITableViewCell *cell = [(UITableViewCell *) [theTableView dequeueReusableCellWithIdentifier:cellIdentifier] autorelease];
     if (cell == nil) {
-        cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier] autorelease];
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier];
         cell.backgroundColor = [UIColor clearColor];
         if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
             cell.textLabel.textColor = [UIColor whiteColor];
@@ -104,10 +121,10 @@ UITableView *_sourcesTableView;
 }
 
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
-    if(alertView == manageAlert && buttonIndex == 1) [self refreshSources];
+    if(alertView == manageAlert && buttonIndex == 1) NSLog(@"ETA SON"); //[self updates];
     else if(alertView == manageAlert && buttonIndex == 2) [self addSource];
     else if(alertView == addSourceAlert && buttonIndex != alertView.cancelButtonIndex) {
-        long releaseStatusCode = [self statusCodeOfFileAtURL:[NSString stringWithFormat:@"http://%@/Release",[alertView textFieldAtIndex:0].text]];
+        long releaseStatusCode = [self statusCodeOfFileAtURL:[NSString stringWithFormat:@"%@/Release",[alertView textFieldAtIndex:0].text]];
         if(releaseStatusCode != 200) {
             [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Requesting the \"Release\" file of the repository returned the error code %ld or another error. This means a readable third-party source no longer exists at this URL (or it actually never did), has been moved or temporairly taken down. You can try contacting the repository owner or the developer of Icy Installer by sending the contents of the /var/mobile/Media/Icy/log.txt file.",releaseStatusCode]];
             NSLog(@"Response code: %ld",releaseStatusCode);
@@ -152,9 +169,13 @@ UITableView *_sourcesTableView;
     }
 }
 
+- (void)updates {
+    // TODO
+}
+
 UIAlertView *manageAlert;
 - (void)manage {
-    manageAlert = [[UIAlertView alloc] initWithTitle:@"Manage" message:nil delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:@"Reload sources", @"Add source", nil];
+    manageAlert = [[UIAlertView alloc] initWithTitle:@"Manage" message:nil delegate:self cancelButtonTitle:@"Dismiss" otherButtonTitles:@"Scan updates", @"Add source", nil];
     [manageAlert show];
 }
 
@@ -168,12 +189,17 @@ int repoRemoveIndex;
 
 UIAlertView *addSourceAlert;
 - (void)addSource {
-    addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source WITHOUT including \"http(s)://\" or \"www\"" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
+    addSourceAlert = [[UIAlertView alloc] initWithTitle:@"Add source" message:@"Please enter the URL of the source NOT INCLUDING \"www\", but INCLUDING \"http:// or https://\"" delegate:self cancelButtonTitle:@"Cancel" otherButtonTitles:@"Add", nil];
     addSourceAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
     [addSourceAlert show];
 }
 
 - (void)refreshSources {
+    if(![IcyUniversalMethods isNetworkAvailable]) {
+        [sourcesRefreshControl endRefreshing];
+        [self messageWithTitle:@"No internet..." message:@"Please connect to the internet and try again later."];
+        return;
+    }
     NSError *err = nil;
     for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:nil]) {
         if([object isEqualToString:@"updates"]) continue;
@@ -183,8 +209,6 @@ UIAlertView *addSourceAlert;
         [self messageWithTitle:@"Error" message:[err localizedDescription]];
         return;
     }
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading sources..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
-    [alert show];
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list"]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         // BigBoss
@@ -211,8 +235,9 @@ UIAlertView *addSourceAlert;
         _sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
         [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
         [self stripSources];
-        [alert dismissWithClickedButtonIndex:0 animated:YES];
         [_sourcesTableView reloadData];
+        [self messageWithTitle:@"Done" message:@"Sources refreshed."];
+        [sourcesRefreshControl endRefreshing];
     });
 }
 
