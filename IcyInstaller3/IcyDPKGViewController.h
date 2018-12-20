@@ -9,8 +9,9 @@
 #import <UIKit/UIKit.h>
 #define SYSTEM_VERSION_LESS_THAN(v) ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedAscending)
 
-@interface IcyDPKGViewController : UIViewController
+@interface IcyDPKGViewController : UIViewController <UITableViewDelegate, UITableViewDataSource>
 
-- (void)setDPKGArguments:(NSArray *)args;
+- (void)addItemToQuery:(NSString *)item;
+- (void)addNameToQuery:(NSString *)name;
 
 @end

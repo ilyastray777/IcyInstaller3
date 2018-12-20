@@ -23,6 +23,7 @@ static int _packageIndex;
 static NSMutableArray *_searchFilenames;
 NSString *_filename;
 UITextField *_searchField;
+UIProgressView *searchProgress;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -32,16 +33,16 @@ UITextField *_searchField;
     _searchNames = [[NSMutableArray alloc] init];
     _searchDescs = [[NSMutableArray alloc] init];
     _searchDepictions = [[NSMutableArray alloc] init];
-    _searchFilenames = [[NSMutableArray alloc] init];    
+    _searchFilenames = [[NSMutableArray alloc] init];
     // Label saying "Search"
-    UILabel *searchLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,[UIScreen mainScreen].bounds.size.width - 130,40)];
+    UILabel *searchLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,self.view.bounds.size.width - 130,40)];
     searchLabel.backgroundColor = [UIColor clearColor];
     [searchLabel setFont:[UIFont boldSystemFontOfSize:30]];
     searchLabel.text = @"Search";
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) searchLabel.textColor = [UIColor whiteColor];
     [self.view addSubview:searchLabel];
     // Search texfield
-    _searchField = [[UITextField alloc] initWithFrame:CGRectMake(15,100,[UIScreen mainScreen].bounds.size.width - 30,35)];
+    _searchField = [[UITextField alloc] initWithFrame:CGRectMake(15,100,self.view.bounds.size.width - 30,35)];
     _searchField.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
     UIView *searchImageView = [[UIView alloc] initWithFrame:CGRectMake(5, 0, 27, 17)];
     UIImageView *searchImage = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"icons/Search.png"]];
@@ -60,22 +61,34 @@ UITextField *_searchField;
     if(![[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor grayColor]}];
     else _searchField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Search" attributes:@{NSForegroundColorAttributeName: [UIColor orangeColor]}];
     [self.view addSubview:_searchField];
-    _searchTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,150,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 100) style:UITableViewStylePlain];
+    _searchTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,150,self.view.bounds.size.width,self.view.bounds.size.height - 100) style:UITableViewStylePlain];
     _searchTableView.delegate = self;
     _searchTableView.dataSource = self;
     [_searchTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     _searchTableView.contentInset = UIEdgeInsetsMake(0,0,100,0);
-    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
-        if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _searchTableView.contentInset = UIEdgeInsetsMake(0,-160,100,0);
-        else _searchTableView.contentInset = UIEdgeInsetsMake(0,-30,100,0);
-    }
     _searchTableView.backgroundColor = [UIColor clearColor];
     [self.view addSubview:_searchTableView];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
         self.view.backgroundColor = [UIColor blackColor];
         _searchTableView.backgroundColor = [UIColor blackColor];
         _searchField.keyboardAppearance = UIKeyboardAppearanceDark;
+        self.view.backgroundColor = [UIColor blackColor];
     }
+    [self resetFrames];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self resetFrames];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self resetFrames];
+}
+
+- (void)resetFrames {
+    _searchField.frame = CGRectMake(15,100,self.view.bounds.size.width - 30,35);
+    _searchTableView.frame = CGRectMake(0,150,self.view.bounds.size.width,self.view.bounds.size.height - 100);
 }
 
 + (UITextField *)getSearchField {
@@ -96,7 +109,7 @@ UITextField *_searchField;
  
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
      static NSString *cellIdentifier = @"cell";
-     UITableViewCell *cell = [(UITableViewCell *) [theTableView dequeueReusableCellWithIdentifier:cellIdentifier] autorelease];
+     UITableViewCell *cell = (UITableViewCell *) [theTableView dequeueReusableCellWithIdentifier:cellIdentifier];
      if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier];
         cell.backgroundColor = [UIColor clearColor];
@@ -136,8 +149,15 @@ UITextField *_searchField;
     [_searchDescs removeAllObjects];
     [_searchFilenames removeAllObjects];
     [_searchDepictions removeAllObjects];
+    UIActivityIndicatorView *wheel = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+    wheel.center = self.view.center;
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) wheel.activityIndicatorViewStyle = UIActivityIndicatorViewStyleWhite;
+    [self.view addSubview:wheel];
+    [wheel startAnimating];
     // For loop to search in all repos
-    for (id repo in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:NULL]) {
+    NSArray *repos = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:NULL];
+    __block int i = 0;
+    for (id repo in repos) {
         SourcesViewController *sourcesViewController = [[SourcesViewController alloc] init];
         NSString *fullURL = nil;
         if([repo rangeOfString:@".bz2"].location != NSNotFound) continue;
@@ -148,15 +168,24 @@ UITextField *_searchField;
         else if([repo isEqualToString:@"updates"]) continue;
         else fullURL = [sourcesViewController.sourceLinks objectAtIndex:[sourcesViewController.sources indexOfObject:repo]];
         if(![[fullURL substringFromIndex:fullURL.length - 1] isEqualToString:@"/"]) fullURL = [fullURL stringByAppendingString:@"/"];
-        [self searchForPackage:package inRepo:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",repo] withFullURLString:fullURL];
-        [_searchTableView reloadData];
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            i++;
+            [self searchForPackage:package inRepo:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",repo] withFullURLString:fullURL];
+            if(i == repos.count - 1) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [wheel stopAnimating];
+                    wheel.hidden = YES;
+                    [_searchTableView reloadData];
+                });
+            }
+        });
     }
 }
 
 - (void)searchForPackage:(NSString *)package inRepo:(NSString *)repo withFullURLString:(NSString *)fullURL {
     char str[999];
     const char *filename = [repo UTF8String];
-    const char *whatToSearch = [[NSString stringWithFormat:@"Name: %@", package] UTF8String];
+    NSString *whatToSearch = [NSString stringWithFormat:@"Name: %@", package];
     NSString *strictSearch = [NSString stringWithFormat:@"Package: %@\n",package];
     FILE *file = fopen(filename, "r");
     BOOL shouldAdd = NO;
@@ -168,8 +197,7 @@ UITextField *_searchField;
     NSString *lastPackage = nil;
     NSString *lastVersion = nil;
     while(fgets(str, 999, file) != NULL) {
-        
-        if(strstr(str, whatToSearch)) shouldAdd = YES;
+        if(strcasestr(str, [whatToSearch UTF8String])) shouldAdd = YES;
         if(strcmp(str, [strictSearch UTF8String]) == 0) {
             shouldAdd = YES;
             shouldDoWeirdStuffWithName = YES;
@@ -233,11 +261,7 @@ UITextField *_searchField;
     NSString *depictionString = [_searchDepictions objectAtIndex:indexPath.row];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@" " withString:@""];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@"\n" withString:@""];
-    if([depictionString isEqualToString:@"ITHASNODEPICTION"] && ![self isPackageInstalled:[_searchPackages objectAtIndex:indexPath.row]]) {
-        //[self downloadWithProgressAndURLString:[_searchFilenames objectAtIndex:_packageIndex]];
-        return;
-    }
-    DepictionViewController *depictionViewController = [[DepictionViewController alloc] initWithURLString:depictionString removeBundleID:[_searchPackages objectAtIndex:indexPath.row] downloadURLString:[_searchFilenames objectAtIndex:indexPath.row] buttonType:buttonType];
+    DepictionViewController *depictionViewController = [[DepictionViewController alloc] initWithURLString:depictionString removeBundleID:[_searchPackages objectAtIndex:indexPath.row] downloadURLString:[_searchFilenames objectAtIndex:indexPath.row] buttonType:buttonType packageName:[_searchNames objectAtIndex:indexPath.row]];
     [self presentViewController:depictionViewController animated:YES completion:nil];
 }
 

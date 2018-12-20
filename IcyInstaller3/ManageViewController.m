@@ -18,22 +18,19 @@
 UITableView *_manageTableView;
 IcyPackageList *_packageList;
 UIRefreshControl *refreshControl;
+UINavigationBar *manageNavigationBar;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Initialize view controller and package list
     _packageList = [[IcyPackageList alloc] init];
     // Table view
-    _manageTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height) style:UITableViewStylePlain];
+    _manageTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height) style:UITableViewStylePlain];
     _manageTableView.delegate = self;
     _manageTableView.dataSource = self;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _manageTableView.backgroundColor = [UIColor blackColor];
     [_manageTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     _manageTableView.contentInset = UIEdgeInsetsMake(70,0,60,0);
-    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
-        if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _manageTableView.contentInset = UIEdgeInsetsMake(0,-160,60,0);
-        else _manageTableView.contentInset = UIEdgeInsetsMake(70,-30,60,0);
-    }
     // Pull-to-refresh stuff
     refreshControl = [[UIRefreshControl alloc] init];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [refreshControl setTintColor:[UIColor whiteColor]];
@@ -43,7 +40,7 @@ UIRefreshControl *refreshControl;
     [self.view bringSubviewToFront:_manageTableView];
     [_manageTableView reloadData];
     // Navbar
-    UINavigationBar *manageNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,64)];
+    manageNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
     UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Installed"];
     UIBarButtonItem *backupButton = [[UIBarButtonItem alloc] initWithTitle:@"Backup" style:UIBarButtonItemStylePlain target:self action:@selector(backup)];
     titleNavigationItem.rightBarButtonItem = backupButton;
@@ -52,8 +49,24 @@ UIRefreshControl *refreshControl;
         manageNavigationBar.tintColor = [UIColor orangeColor];
         manageNavigationBar.barTintColor = [UIColor blackColor];
         manageNavigationBar.barStyle = UIBarStyleBlack;
+        self.view.backgroundColor = [UIColor blackColor];
     }
     [self.view addSubview:manageNavigationBar];
+    [self resetFrames];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self resetFrames];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self resetFrames];
+}
+
+- (void)resetFrames {
+    _manageTableView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
+    manageNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
 }
 
 - (void)backup {
@@ -90,7 +103,7 @@ UIRefreshControl *refreshControl;
 
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *cellIdentifier = @"cell";
-    UITableViewCell *cell = [(UITableViewCell *)[theTableView dequeueReusableCellWithIdentifier:cellIdentifier] autorelease];
+    UITableViewCell *cell = (UITableViewCell *)[theTableView dequeueReusableCellWithIdentifier:cellIdentifier];
     //if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier];
         cell.backgroundColor = [UIColor clearColor];

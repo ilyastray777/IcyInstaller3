@@ -7,6 +7,8 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "IcyUniversalMethods.h"
+#import "IcyDPKGViewController.h"
 
 @interface HomeViewController : UIViewController <UIWebViewDelegate>
 + (UIWebView *)getWelcomeWebView;

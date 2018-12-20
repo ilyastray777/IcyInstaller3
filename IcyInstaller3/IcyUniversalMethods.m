@@ -17,7 +17,7 @@
 @implementation IcyUniversalMethods
 
 - (id)init {
-    [super init];
+    self = [super init];
     // Get device model and UDID
     struct utsname systemInfo;
     uname(&systemInfo);
@@ -89,7 +89,7 @@ UIAlertView *respringAlert;
 OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
 - (NSString *)uniqueDeviceID {
     CFStringRef udid = MGCopyAnswer(CFSTR("UniqueDeviceID"));
-    return (NSString *)udid;
+    return (NSString *)CFBridgingRelease(udid);
 }
 
 + (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors {
@@ -103,8 +103,8 @@ OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
     [task setStandardError:err];
     [task launch];
     [task waitUntilExit];
-    if(errors) return [[NSString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
-    else return [[NSString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+    if(errors) return [[NSMutableString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+    else return [[NSMutableString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
 }
 
 @end

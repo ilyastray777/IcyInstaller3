@@ -26,12 +26,21 @@ NSMutableData *downloadedMutableData;
 UIWebView *depictionWebView;
 NSURLResponse *urlResponse;
 NSString *toDownloadURL;
+NSString *filename;
+NSString *packageName;
+NSMutableArray *packageQueryArray;
+NSMutableArray *packageQueryNamesArray;
+UINavigationBar *depictionNavigationBar;
 
 @synthesize progressView;
 
-- (id)initWithURLString:(NSString *)urlString removeBundleID:(NSString *)removeBundleID downloadURLString:(NSString *)downloadURLString buttonType:(int)buttonType {
-    [super init];
+- (id)initWithURLString:(NSString *)urlString removeBundleID:(NSString *)removeBundleID downloadURLString:(NSString *)downloadURLString buttonType:(int)buttonType packageName:(NSString *)name {
+    self = [super init];
+    packageQueryArray = [[NSMutableArray alloc] init];
+    packageQueryNamesArray = [[NSMutableArray alloc] init];
+    packageName = name;
     toDownloadURL = downloadURLString;
+    if([urlString isEqualToString:@"ITHASNODEPICTION"]) urlString = @"http://artikushg.github.io/nodepiction.html";
     // button types
     // 0 - no left button
     // 1 - install
@@ -44,7 +53,7 @@ NSString *toDownloadURL;
     depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,64,self.view.bounds.size.width,self.view.bounds.size.height - 64)];
     [self.view addSubview:depictionWebView];
     [depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:urlString]]];
-    UINavigationBar *depictionNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,64)];
+    depictionNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
     UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Depiction"];
     UIBarButtonItem *doneButton = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStyleDone target:self action:@selector(dismiss)];
     titleNavigationItem.rightBarButtonItem = doneButton;
@@ -57,24 +66,40 @@ NSString *toDownloadURL;
         depictionNavigationBar.tintColor = [UIColor orangeColor];
         depictionNavigationBar.barTintColor = [UIColor blackColor];
         depictionNavigationBar.barStyle = UIBarStyleBlack;
+        self.view.backgroundColor = [UIColor blackColor];
     }
     [self.view addSubview:depictionNavigationBar];
     // Progress View
     progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
-    progressView.frame = CGRectMake(0,64,[UIScreen mainScreen].bounds.size.width,10);
+    progressView.frame = CGRectMake(0,64,self.view.bounds.size.width,10);
     progressView.progress = 0;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) progressView.progressTintColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     progressView.hidden = NO;
     [self.view addSubview:progressView];
     return self;
+    [self resetFrames];
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self resetFrames];
+}
+
 - (void)dismiss {
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self resetFrames];
+}
+
+- (void)resetFrames {
+    depictionNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
+    depictionWebView.frame = CGRectMake(0,64,self.view.bounds.size.width,self.view.bounds.size.height - 64);
 }
 
 UIAlertView *optionsAlert;
@@ -88,6 +113,7 @@ UIAlertView *optionsAlert;
 }
 
 - (void)downloadWithProgressAndURLString:(NSString *)urlString {
+    filename = [urlString substringFromIndex:[urlString rangeOfString:@"/" options:NSBackwardsSearch].location + 1];
     if(![IcyUniversalMethods isNetworkAvailable]) {
         [IcyUniversalMethods messageWithTitle:@"Error" message:@"This action requires an internet connection. If you are connected to the internet, but the problem still occurs, try relaunching Icy."];
         return;
@@ -103,11 +129,20 @@ UIAlertView *optionsAlert;
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-    [downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/downloaded.deb"] atomically:YES];
+    [downloadedMutableData writeToFile:[NSString stringWithFormat:@"/var/mobile/Media/%@",filename] atomically:YES];
     // Install
     IcyDPKGViewController *dpkgViewController = [[IcyDPKGViewController alloc] init];
+    if([[NSUserDefaults standardUserDefaults] objectForKey:@"queryNames"] != nil) packageQueryNamesArray = [[[NSUserDefaults standardUserDefaults] objectForKey:@"queryNames"] mutableCopy];
+    if([[NSUserDefaults standardUserDefaults] objectForKey:@"queryPackages"] != nil) packageQueryArray = [[[NSUserDefaults standardUserDefaults] objectForKey:@"queryPackages"] mutableCopy];
+    [packageQueryArray addObject:filename];
+    [packageQueryNamesArray addObject:packageName];
+    packageQueryArray = [[[NSOrderedSet orderedSetWithArray:packageQueryArray] array] mutableCopy];
+    packageQueryNamesArray = [[[NSOrderedSet orderedSetWithArray:packageQueryNamesArray] array] mutableCopy];
+    [[NSUserDefaults standardUserDefaults] setObject:packageQueryNamesArray forKey:@"queryNames"];
+    [[NSUserDefaults standardUserDefaults] setObject:packageQueryArray forKey:@"queryPackages"];
     [self presentViewController:dpkgViewController animated:YES completion:^ {
-        [dpkgViewController setDPKGArguments:@[@"-i", @"/var/mobile/Media/downloaded.deb"]];
+        for(NSString *object in [[NSUserDefaults standardUserDefaults] objectForKey:@"queryPackages"]) [dpkgViewController addItemToQuery:object];
+        for(NSString *object in [[NSUserDefaults standardUserDefaults] objectForKey:@"queryNames"]) [dpkgViewController addNameToQuery:object];
     }];
 }
 

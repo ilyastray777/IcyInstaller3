@@ -17,7 +17,6 @@
 // Properties
 
 @property (nonatomic) int removeIndex;
-@property (strong,nonatomic) UIView *infoView;
 @property (strong,nonatomic) UITextView *infoText;
 @property (strong,nonatomic) IcyPackageList *packageList;
 @property (strong,nonatomic) IcyUniversalMethods *icyUniversalMethods;

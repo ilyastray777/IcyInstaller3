@@ -30,6 +30,9 @@
     if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
     // Redirect log to a file
     freopen([@"/var/mobile/Media/Icy/log.txt" cStringUsingEncoding:NSASCIIStringEncoding],"a+",stderr);
+    // Clean user defaults stuff
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"queryPackages"];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"queryNames"];
     // UI code
     [[SourcesViewController getSourcesTableView] reloadData];
     _window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];

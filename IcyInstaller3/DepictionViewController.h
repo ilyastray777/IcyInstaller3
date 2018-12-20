@@ -13,7 +13,7 @@
 
 @interface DepictionViewController : UIViewController <UIAlertViewDelegate>
 
-- (id)initWithURLString:(NSString *)urlString removeBundleID:(NSString *)removeBundleID downloadURLString:(NSString *)downloadURLString buttonType:(int)buttonType;
+- (id)initWithURLString:(NSString *)urlString removeBundleID:(NSString *)removeBundleID downloadURLString:(NSString *)downloadURLString buttonType:(int)buttonType packageName:(NSString *)name;
 
 @property (nonatomic, retain) UIProgressView *progressView;
 @property (strong, nonatomic) IcyUniversalMethods *icyUniversalMethods;

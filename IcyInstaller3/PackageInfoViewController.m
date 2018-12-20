@@ -18,10 +18,12 @@
 @implementation PackageInfoViewController
 
 @synthesize infoText;
-@synthesize infoView;
 @synthesize removeIndex;
 BOOL infoPresent = NO;
 UINavigationBar *packageInfoNavigationBar;
+UIButton *more;
+UIButton *expand;
+UIButton *files;
 
 + (BOOL)getInfoPresent {
     return infoPresent;
@@ -34,17 +36,19 @@ UINavigationBar *packageInfoNavigationBar;
     // We'll also need an instance of IcyUniversalMethods here
     _icyUniversalMethods = [[IcyUniversalMethods alloc] init];
     // Navbar
-    packageInfoNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,64)];
+    packageInfoNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
     UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Info"];
     UIBarButtonItem *removeButton = [[UIBarButtonItem alloc] initWithTitle:@"Remove" style:UIBarButtonItemStylePlain target:self action:@selector(removePackageButtonAction)];
     UIBarButtonItem *doneButton = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStyleDone target:self action:@selector(dismissInfo)];
     titleNavigationItem.leftBarButtonItem = removeButton;
     titleNavigationItem.rightBarButtonItem = doneButton;
     [packageInfoNavigationBar setItems:@[titleNavigationItem]];
+    self.view.backgroundColor = [UIColor whiteColor];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
         packageInfoNavigationBar.tintColor = [UIColor orangeColor];
         packageInfoNavigationBar.barTintColor = [UIColor blackColor];
         packageInfoNavigationBar.barStyle = UIBarStyleBlack;
+        self.view.backgroundColor = [UIColor blackColor];
     }
     [self.view addSubview:packageInfoNavigationBar];
 }
@@ -53,36 +57,25 @@ UINavigationBar *packageInfoNavigationBar;
     if(infoPresent) return;
     infoPresent = YES;
     removeIndex = (int)indexPath.row;
-    UIView *infoTextView = [[UIView alloc] init];
-    if (CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) infoTextView.frame = CGRectMake(15,10,[UIScreen mainScreen].bounds.size.height - 30,[UIScreen mainScreen].bounds.size.width - 234);
-    else infoTextView.frame = CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height - 234);
-    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) infoTextView.frame = CGRectMake(15,10,[UIScreen mainScreen].bounds.size.width - 30,[UIScreen mainScreen].bounds.size.height - 370);
-    infoTextView.layer.masksToBounds = YES;
-    infoTextView.layer.cornerRadius = 10;
-    infoView = [[UIView alloc] initWithFrame:CGRectMake(0,64,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height - 64)];
-    if (CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) infoView.frame = CGRectMake(0,64,[UIScreen mainScreen].bounds.size.height,[UIScreen mainScreen].bounds.size.width - 64);
-    [infoView addSubview:infoTextView];
-    [self.view addSubview:infoView];
-    infoText = [[UITextView alloc] initWithFrame:infoTextView.bounds];
+    infoText = [[UITextView alloc] initWithFrame:CGRectMake(15,74,self.view.bounds.size.width - 30,self.view.bounds.size.height - 234)];
+    infoText.layer.masksToBounds = YES;
+    infoText.layer.cornerRadius = 10;
     infoText.editable = NO;
     infoText.scrollEnabled = YES;
     infoText.textColor = [UIColor whiteColor];
     infoText.backgroundColor = [UIColor clearColor];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
-        infoTextView.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
-        infoView.backgroundColor = [UIColor blackColor];
+        infoText.backgroundColor = [[UIColor orangeColor] colorWithAlphaComponent:0.1];
+        infoText.textColor = [UIColor whiteColor];
     } else {
-        infoTextView.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
-        infoView.backgroundColor = [UIColor whiteColor];
+        infoText.backgroundColor = [[UIColor grayColor] colorWithAlphaComponent:0.1];
         infoText.textColor = [UIColor blackColor];
     }
     [infoText setFont:[UIFont boldSystemFontOfSize:15]];
     infoText.layer.masksToBounds = YES;
     infoText.layer.cornerRadius = 10;
-    [infoTextView addSubview:infoText];
-    UIButton *more = [[UIButton alloc] initWithFrame:CGRectMake(15,infoView.bounds.size.height - 50,[UIScreen mainScreen].bounds.size.width - 30,40)];
-    if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake([UIScreen mainScreen].bounds.size.height / 3 + 10,infoView.bounds.size.height - 340,[UIScreen mainScreen].bounds.size.height / 3 - 20,30);
-    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"] && CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) more.frame = CGRectMake(15,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 30,40);
+    [self.view addSubview:infoText];
+    more = [[UIButton alloc] initWithFrame:CGRectMake(15,self.view.bounds.size.height - 50,self.view.bounds.size.width - 30,40)];
     more.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [more setTitle:@"More info" forState:UIControlStateNormal];
     [more setTitle:@"More info unavailable" forState:UIControlStateDisabled];
@@ -93,8 +86,8 @@ UINavigationBar *packageInfoNavigationBar;
     [more setTitleColor:[UIColor whiteColor] forState:UIControlStateDisabled];
     more.enabled = NO;
     [more addTarget:self action:@selector(moreInfo) forControlEvents:UIControlEventTouchUpInside];
-    [infoView addSubview:more];
-    UIButton *expand = [[UIButton alloc] initWithFrame:CGRectMake(15,infoView.bounds.size.height - 100,[UIScreen mainScreen].bounds.size.width - 30,40)];
+    [self.view addSubview:more];
+    expand = [[UIButton alloc] initWithFrame:CGRectMake(15,self.view.bounds.size.height - 100,self.view.bounds.size.width - 30,40)];
     expand.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [expand setTitle:@"Expand" forState:UIControlStateNormal];
     expand.layer.masksToBounds = YES;
@@ -102,8 +95,8 @@ UINavigationBar *packageInfoNavigationBar;
     [expand.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [expand setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [expand addTarget:self action:@selector(expand) forControlEvents:UIControlEventTouchUpInside];
-    [infoView addSubview:expand];
-    UIButton *files = [[UIButton alloc] initWithFrame:CGRectMake(15,infoView.bounds.size.height - 150,[UIScreen mainScreen].bounds.size.width - 30,40)];
+    [self.view addSubview:expand];
+    files = [[UIButton alloc] initWithFrame:CGRectMake(15,self.view.bounds.size.height - 150,self.view.bounds.size.width - 30,40)];
     files.backgroundColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     [files setTitle:@"Files" forState:UIControlStateNormal];
     files.layer.masksToBounds = YES;
@@ -111,12 +104,30 @@ UINavigationBar *packageInfoNavigationBar;
     [files.titleLabel setFont:[UIFont boldSystemFontOfSize:15]];
     [files setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [files addTarget:self action:@selector(files) forControlEvents:UIControlEventTouchUpInside];
-    [infoView addSubview:files];
+    [self.view addSubview:files];
     NSString *info = [self infoAboutPackage:[NSString stringWithFormat:@"Package: %@\n",[_packageList.packageIDs objectAtIndex:indexPath.row]] full:NO];
     if([info rangeOfString:@"hasdepiction"].location != NSNotFound) more.enabled = YES;
     info = [info stringByReplacingOccurrencesOfString:@"hasdepiction" withString:@""];
     infoText.text = info;
     [self.view bringSubviewToFront:packageInfoNavigationBar];
+    [self resetFrames];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self resetFrames];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self resetFrames];
+}
+
+- (void)resetFrames {
+    packageInfoNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
+    infoText.frame = CGRectMake(15,74,self.view.bounds.size.width - 30,self.view.bounds.size.height - 234);
+    more.frame = CGRectMake(15,self.view.bounds.size.height - 50,self.view.bounds.size.width - 30,40);
+    expand.frame = CGRectMake(15,self.view.bounds.size.height - 100,self.view.bounds.size.width - 30,40);
+    files.frame = CGRectMake(15,self.view.bounds.size.height - 150,self.view.bounds.size.width - 30,40);
 }
 
 - (void)moreInfo {
@@ -134,7 +145,7 @@ UINavigationBar *packageInfoNavigationBar;
         if(strstr(str, "Depiction:") && shouldReturn) break;
     }
     fclose(file);
-    DepictionViewController *depictionViewController = [[DepictionViewController alloc] initWithURLString:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] substringFromIndex:11] stringByReplacingOccurrencesOfString:@"\n" withString:@""] removeBundleID:nil downloadURLString:nil buttonType:0];
+    DepictionViewController *depictionViewController = [[DepictionViewController alloc] initWithURLString:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] substringFromIndex:11] stringByReplacingOccurrencesOfString:@"\n" withString:@""] removeBundleID:nil downloadURLString:nil buttonType:0 packageName:nil];
     [self presentViewController:depictionViewController animated:YES completion:nil];
 }
 

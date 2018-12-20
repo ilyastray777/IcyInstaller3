@@ -15,6 +15,7 @@
 @implementation SourcesViewController
 UITableView *_sourcesTableView;
 UIRefreshControl *sourcesRefreshControl;
+UINavigationBar *sourcesNavigationBar;
 
 - (id)init {
     if(self = [super init]) {
@@ -53,23 +54,19 @@ UIRefreshControl *sourcesRefreshControl;
     self.sources = [[NSMutableArray alloc] init];
     for(id object in [[NSUserDefaults standardUserDefaults] objectForKey:@"sourceNames"]) [self.sources addObject:object];
     // The tableview
-    _sourcesTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,[UIScreen mainScreen].bounds.size.height) style:UITableViewStylePlain];
+    _sourcesTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height) style:UITableViewStylePlain];
     _sourcesTableView.delegate = self;
     _sourcesTableView.dataSource = self;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _sourcesTableView.backgroundColor = [UIColor blackColor];
     [_sourcesTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     _sourcesTableView.contentInset = UIEdgeInsetsMake(64,0,60,0);
-    if([(NSString*)[UIDevice currentDevice].model hasPrefix:@"iPad"]) {
-        if(CGRectGetWidth(self.view.bounds) > CGRectGetHeight(self.view.bounds)) _sourcesTableView.contentInset = UIEdgeInsetsMake(0,-160,60,0);
-        else _sourcesTableView.contentInset = UIEdgeInsetsMake(0,-30,60,0);
-    }
     sourcesRefreshControl = [[UIRefreshControl alloc] init];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [sourcesRefreshControl setTintColor:[UIColor whiteColor]];
     [_sourcesTableView addSubview:sourcesRefreshControl];
     [sourcesRefreshControl addTarget:self action:@selector(refreshSources) forControlEvents:UIControlEventValueChanged];
     [self.view addSubview:_sourcesTableView];
     // Navbar
-    UINavigationBar *sourcesNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,[UIScreen mainScreen].bounds.size.width,64)];
+    sourcesNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
     UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Sources"];
     UIBarButtonItem *manageButton = [[UIBarButtonItem alloc] initWithTitle:@"Manage" style:UIBarButtonItemStylePlain target:self action:@selector(manage)];
     titleNavigationItem.rightBarButtonItem = manageButton;
@@ -78,8 +75,24 @@ UIRefreshControl *sourcesRefreshControl;
         sourcesNavigationBar.tintColor = [UIColor orangeColor];
         sourcesNavigationBar.barTintColor = [UIColor blackColor];
         sourcesNavigationBar.barStyle = UIBarStyleBlack;
+        self.view.backgroundColor = [UIColor blackColor];
     }
     [self.view addSubview:sourcesNavigationBar];
+    [self resetFrames];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self resetFrames];
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+    [self resetFrames];
+}
+
+- (void)resetFrames {
+    _sourcesTableView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
+    sourcesNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)theTableView {
@@ -92,7 +105,7 @@ UIRefreshControl *sourcesRefreshControl;
 
 - (UITableViewCell *)tableView:(UITableView *)theTableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     static NSString *cellIdentifier = @"cell";
-    UITableViewCell *cell = [(UITableViewCell *) [theTableView dequeueReusableCellWithIdentifier:cellIdentifier] autorelease];
+    UITableViewCell *cell = (UITableViewCell *) [theTableView dequeueReusableCellWithIdentifier:cellIdentifier];
     if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellIdentifier];
         cell.backgroundColor = [UIColor clearColor];
@@ -130,20 +143,20 @@ UIRefreshControl *sourcesRefreshControl;
             NSLog(@"Response code: %ld",releaseStatusCode);
             return;
         }
-        long packagesStatusCode = [self statusCodeOfFileAtURL:[NSString stringWithFormat:@"http://%@/Packages.bz2",[alertView textFieldAtIndex:0].text]];
+        long packagesStatusCode = [self statusCodeOfFileAtURL:[NSString stringWithFormat:@"%@/Packages.bz2",[alertView textFieldAtIndex:0].text]];
         if(packagesStatusCode != 200) {
             [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Requesting the \"Packages.bz2\" file of the repository returned the error code %ld or another error. This means a readable third-party source no longer exists at this URL (or it actually never did), has been moved or temporairly taken down. You can try contacting the repository owner or the developer of Icy Installer by sending the contents of the /var/mobile/Media/Icy/log.txt file.",packagesStatusCode]];
             NSLog(@"Response code: %ld",packagesStatusCode);
             return;
         }
         if(![[NSFileManager defaultManager] fileExistsAtPath:@"/var/mobile/Media/Icy/sources.list" isDirectory:nil]) [[NSFileManager defaultManager] createFileAtPath:@"/var/mobile/Media/Icy/sources.list" contents:nil attributes:nil];
-        if([[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil] rangeOfString:[@"http://" stringByAppendingString:[alertView textFieldAtIndex:0].text]].location != NSNotFound) {
+        if([[NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil] rangeOfString:[alertView textFieldAtIndex:0].text].location != NSNotFound) {
             [self messageWithTitle:@"Error" message:@"This source is already added to Icy Installer's source list."];
             return;
         }
         NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:@"/var/mobile/Media/Icy/sources.list"];
         [fileHandle seekToEndOfFile];
-        [fileHandle writeData:[[NSString stringWithFormat:@"http://%@\n",[alertView textFieldAtIndex:0].text] dataUsingEncoding:NSUTF8StringEncoding]];
+        [fileHandle writeData:[[NSString stringWithFormat:@"%@\n",[alertView textFieldAtIndex:0].text] dataUsingEncoding:NSUTF8StringEncoding]];
         // 11 - shortest link that can ever exist: http://a.co, if it's less that this - it's not a valid sources.list file
         if([[[NSFileManager defaultManager] attributesOfItemAtPath:@"/var/mobile/Media/Icy/sources.list" error:nil] fileSize] >= 11) {
             NSString *sources = [NSString stringWithContentsOfFile:@"/var/mobile/Media/Icy/sources.list" encoding:NSUTF8StringEncoding error:nil];
@@ -156,7 +169,11 @@ UIRefreshControl *sourcesRefreshControl;
             _sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
             [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
             [_sourcesTableView reloadData];
-            [self stripSources];
+            //  SSS    TTTTTTT    OOOOOO    PPPP
+            //  S         T       O    O    P  P
+            //   S        T       O    O    PPPP
+            // SSS        T       OOOOOO    P
+            // If you're reading this because of the ugly ASCII art I made, you're either an artikus or someone else. If you aren't an artikus, stop reading because this is just a message I left to myself to return here and optimize this thing.
             [self messageWithTitle:@"Done" message:@"The source was added to your list."];
         }
     } else if(alertView == removeRepoAlert && buttonIndex != alertView.cancelButtonIndex) {
@@ -200,7 +217,11 @@ UIAlertView *addSourceAlert;
         [self messageWithTitle:@"No internet..." message:@"Please connect to the internet and try again later."];
         return;
     }
-    NSError *err = nil;
+    // Yoo wassup
+    // This is the old block of code that used to download repos one-by-one, taking 30+ seconds to reload just the default ones.
+    // The new one takes like 10 seconds to refresh ALL my repos :P
+    // That's here for historical purposes (c) stackoverflow people
+    /*NSError *err = nil;
     for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:nil]) {
         if([object isEqualToString:@"updates"]) continue;
         [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] error:&err];
@@ -221,24 +242,70 @@ UIAlertView *addSourceAlert;
         [[NSData dataWithContentsOfURL:[NSURL URLWithString:@"http://apt.saurik.com/cydia/Packages.bz2"]] writeToFile:@"/var/mobile/Media/Icy/Repos/Saurik.bz2" atomically:YES];
         for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos/" error:nil]) bunzip_one([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] UTF8String], [[[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@",object] stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
         // Third party repos
-        for(id object in _sourceLinks) {
+        for(id object in self->_sourceLinks) {
             long releaseResponse = [self statusCodeOfFileAtURL:[object stringByAppendingString:@"/Release"]];
             if(releaseResponse != 200) {
                 NSLog(@"Request returned code not equal to 200 (%ld)",releaseResponse);
                 [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from yout list because it does not seem to respond.",object]];
             } else {
-                [_sources addObject:[[[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""] stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
-                [self downloadFileFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[NSString stringWithFormat:@"Repos/%@.bz2",[_sources lastObject]]];
+                [self->_sources addObject:[[[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""] stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+                [self downloadFileFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[NSString stringWithFormat:@"Repos/%@.bz2",[self->_sources lastObject]]];
             }
         }
-        NSOrderedSet *orderedSet = [NSOrderedSet orderedSetWithArray:_sources];
-        _sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
-        [[NSUserDefaults standardUserDefaults] setObject:_sources forKey:@"sourceNames"];
+        NSOrderedSet *orderedSet = [NSOrderedSet orderedSetWithArray:self->_sources];
+        self->_sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
+        [[NSUserDefaults standardUserDefaults] setObject:self->_sources forKey:@"sourceNames"];
         [self stripSources];
         [_sourcesTableView reloadData];
         [self messageWithTitle:@"Done" message:@"Sources refreshed."];
         [sourcesRefreshControl endRefreshing];
-    });
+    });*/
+    for(id object in self->_sourceLinks) {
+        long releaseResponse = [self statusCodeOfFileAtURL:[object stringByAppendingString:@"/Release"]];
+        if(releaseResponse != 200) {
+            NSLog(@"Request returned code not equal to 200 (%ld)",releaseResponse);
+            [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from yout list because it does not seem to respond correctly.",object]];
+        } else {
+            [self->_sources addObject:[[[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""] stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
+            //[self downloadFileFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[NSString stringWithFormat:@"Repos/%@.bz2",[self->_sources lastObject]]];
+        }
+    }
+    NSOrderedSet *orderedSet = [NSOrderedSet orderedSetWithArray:self->_sources];
+    self->_sources = [[NSMutableArray alloc] initWithArray:[orderedSet array]];
+    [[NSUserDefaults standardUserDefaults] setObject:self->_sources forKey:@"sourceNames"];
+    NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+    config.HTTPAdditionalHeaders = @{@"User-Agent": @"Telesphoreo APT-HTTP/1.0.592", @"X-Firmware": [[UIDevice currentDevice] systemVersion], @"X-Machine": _deviceModel, @"X-Unique-ID":[[NSUserDefaults standardUserDefaults] objectForKey:@"udid"]};
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:config];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSMutableArray *filenames = [NSMutableArray arrayWithObjects:@"BigBoss.bz2", @"ModMyi.bz2", @"Zodttd.bz2", @"Saurik.bz2", nil];
+    NSMutableArray *urls = [NSMutableArray arrayWithObjects:@"http://apt.thebigboss.org/repofiles/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2", @"http://apt.modmyi.com/dists/stable/main/binary-iphoneos-arm/Packages.bz2", @"http://zodttd.saurik.com/repo/cydia/dists/stable/main/binary-iphoneos-arm/Packages.bz2", @"http://apt.saurik.com/cydia/Packages.bz2", nil];
+    for (id object in _sourceLinks) [urls addObject:[object stringByAppendingString:@"/Packages.bz2"]];
+    for (id object in _sources) [filenames addObject:[object stringByAppendingString:@".bz2"]];
+    __block unsigned long finished = 0;
+    // I know I'm supposed to write my own code reading the documentation and stuff, but this is just a stackoverflow copypasta that I edited a bit to save to the correct directories. It works though
+    for (NSString *filename in filenames) {
+        NSURL *url = [NSURL URLWithString:[urls objectAtIndex:[filenames indexOfObject:filename]]];
+        NSURLSessionTask *downloadTask = [session downloadTaskWithURL:url completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+            NSString *finalPath = [@"/var/mobile/Media/Icy/Repos" stringByAppendingPathComponent:filename];
+            BOOL success;
+            NSError *fileManagerError;
+            if ([fileManager fileExistsAtPath:finalPath]) {
+                success = [fileManager removeItemAtPath:finalPath error:&fileManagerError];
+                NSAssert(success, @"removeItemAtPath error: %@", fileManagerError);
+            }
+            success = [fileManager moveItemAtURL:location toURL:[NSURL fileURLWithPath:finalPath] error:&fileManagerError];
+            NSAssert(success, @"moveItemAtURL error: %@", fileManagerError);
+            bunzip_one([finalPath UTF8String], [[finalPath stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
+            NSLog(@"finished %@", filename);
+            [self stripSource:[filename stringByReplacingOccurrencesOfString:@".bz2" withString:@""]];
+            finished = finished + 1;
+            if(finished == filenames.count) {
+                //[self messageWithTitle:@"Done" message:@"Sources refreshed."];
+                [sourcesRefreshControl endRefreshing];
+            }
+        }];
+        [downloadTask resume];
+    }
 }
 
 int bunzip_one(const char file[999], const char output[999]) {
@@ -275,38 +342,32 @@ int bunzip_one(const char file[999], const char output[999]) {
     return 0;
 }
 
-- (void)stripSources {
-    for(id object in [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/mobile/Media/Icy/Repos" error:nil]) {
-        if([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object]]) [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] error:nil];
-        if([object rangeOfString:@".bz2"].location != NSNotFound) {
-            [[NSFileManager defaultManager] removeItemAtPath:[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] error:nil];
-            continue;
-        }
-        if([object isEqualToString:@"updates"]) continue;
-        FILE *input = fopen([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String], "r");
+- (void)stripSource:(NSString *)object {
+    if([[NSFileManager defaultManager] fileExistsAtPath:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object]]) [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] error:nil];
+    FILE *input = fopen([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String], "r");
         FILE *output = fopen([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] UTF8String], "a");
-        char str[999];
-        BOOL hadDepiction = NO;
-        while(fgets(str, 999, input) != NULL) {
-            if(strstr(str, "Package:") || strstr(str, "Name:") || strstr(str, "Filename:") || strstr(str, "Description:") || strstr(str, "Version:" ) || strstr(str, "Depends:") || strstr(str, "Conflicts:")) fprintf(output, "%s", str);
-            if(strstr(str, "Depiction:")) {
-                fprintf(output, "%s", str);
-                hadDepiction = YES;
-            }
-            if(strlen(str) < 3) {
-                if(!hadDepiction) {
-                    // Workaround for packages that don't have depictions. Was lazy to implement a proper search algorithm for this bug so just did it like this
-                    fprintf(output, "%s", "Depiction: ITHASNODEPICTION");
-                }
-                fprintf(output, "%s", "\n\n");
-                hadDepiction = NO;
-            }
+    char str[999];
+    BOOL hadDepiction = NO;
+    while(fgets(str, 999, input) != NULL) {
+        if(strstr(str, "Package:") || strstr(str, "Name:") || strstr(str, "Filename:") || strstr(str, "Description:") || strstr(str, "Version:" ) || strstr(str, "Depends:") || strstr(str, "Conflicts:")) fprintf(output, "%s", str);
+        if(strstr(str, "Depiction:")) {
+            fprintf(output, "%s", str);
+            hadDepiction = YES;
         }
-        fclose(input);
-        fclose(output);
-        unlink([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String]);
-        rename([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] UTF8String], [[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String]);
+        if(strlen(str) < 3) {
+            if(!hadDepiction) {
+                // Workaround for packages that don't have depictions. Was lazy to implement a proper search algorithm for this bug so just did it like this
+                fprintf(output, "%s", "Depiction: ITHASNODEPICTION");
+            }
+            fprintf(output, "%s", "\n\n");
+            hadDepiction = NO;
+        }
     }
+    fclose(input);
+    fclose(output);
+    unlink([[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String]);
+    unlink([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@.bz2",object] UTF8String]);
+    rename([[NSString stringWithFormat:@"/var/mobile/Media/Icy/Repos/%@_stripped",object] UTF8String], [[@"/var/mobile/Media/Icy/Repos/" stringByAppendingString:object] UTF8String]);
 }
 
 - (long)statusCodeOfFileAtURL:(NSString *)url {
@@ -344,6 +405,7 @@ int bunzip_one(const char file[999], const char output[999]) {
         char coutname[999];
         snprintf(coutname, sizeof(coutname), "/var/mobile/Media/Icy/%s", [[filename stringByReplacingOccurrencesOfString:@".bz2" withString:@""] UTF8String]);
         bunzip_one(cfilename, coutname);
+        [self stripSource:[[filename stringByReplacingOccurrencesOfString:@"Repos/" withString:@""] stringByReplacingOccurrencesOfString:@".bz2" withString:@""]];
     }];
     [task resume];
 }
