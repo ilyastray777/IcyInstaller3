@@ -11,11 +11,9 @@
 #import "DepictionViewController.h"
 @import AVFoundation;
 
-
 @interface DepictionViewController ()
 
 @end
-
 
 @implementation DepictionViewController
 
@@ -28,17 +26,19 @@ NSURLResponse *urlResponse;
 NSString *toDownloadURL;
 NSString *filename;
 NSString *packageName;
+NSString *removeID;
 NSMutableArray *packageQueryArray;
 NSMutableArray *packageQueryNamesArray;
-UINavigationBar *depictionNavigationBar;
 
 @synthesize progressView;
 
 - (id)initWithURLString:(NSString *)urlString removeBundleID:(NSString *)removeBundleID downloadURLString:(NSString *)downloadURLString buttonType:(int)buttonType packageName:(NSString *)name {
     self = [super init];
+    self.title = @"Depiction";
     packageQueryArray = [[NSMutableArray alloc] init];
     packageQueryNamesArray = [[NSMutableArray alloc] init];
     packageName = name;
+    removeID = removeBundleID;
     toDownloadURL = downloadURLString;
     if([urlString isEqualToString:@"ITHASNODEPICTION"]) urlString = @"http://artikushg.github.io/nodepiction.html";
     // button types
@@ -50,25 +50,17 @@ UINavigationBar *depictionNavigationBar;
     NSString *leftButtonTitle = @"";
     if(buttonType == 1) leftButtonTitle = @"Install";
     else if(buttonType == 2) leftButtonTitle = @"Options";
-    depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,64,self.view.bounds.size.width,self.view.bounds.size.height - 64)];
+    depictionWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height)];
     [self.view addSubview:depictionWebView];
     [depictionWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:urlString]]];
-    depictionNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
-    UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Depiction"];
-    UIBarButtonItem *doneButton = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStyleDone target:self action:@selector(dismiss)];
-    titleNavigationItem.rightBarButtonItem = doneButton;
-    if(buttonType != 0) {
-        UIBarButtonItem *leftButton = [[UIBarButtonItem alloc] initWithTitle:leftButtonTitle style:UIBarButtonItemStyleDone target:self action:@selector(leftButtonAction:)];
-        titleNavigationItem.leftBarButtonItem = leftButton;
-    }
-    [depictionNavigationBar setItems:@[titleNavigationItem]];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStyleDone target:self action:@selector(dismiss)];
+    if(buttonType != 0) self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:leftButtonTitle style:UIBarButtonItemStyleDone target:self action:@selector(leftButtonAction:)];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
-        depictionNavigationBar.tintColor = [UIColor orangeColor];
-        depictionNavigationBar.barTintColor = [UIColor blackColor];
-        depictionNavigationBar.barStyle = UIBarStyleBlack;
+        UINavigationBar.appearance.tintColor = [UIColor orangeColor];
+        UINavigationBar.appearance.barTintColor = [UIColor blackColor];
+        UINavigationBar.appearance.barStyle = UIBarStyleBlack;
         self.view.backgroundColor = [UIColor blackColor];
     }
-    [self.view addSubview:depictionNavigationBar];
     // Progress View
     progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
     progressView.frame = CGRectMake(0,64,self.view.bounds.size.width,10);
@@ -76,8 +68,8 @@ UINavigationBar *depictionNavigationBar;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) progressView.progressTintColor = [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
     progressView.hidden = NO;
     [self.view addSubview:progressView];
-    return self;
     [self resetFrames];
+    return self;
 }
 
 - (void)viewDidLoad {
@@ -98,8 +90,8 @@ UINavigationBar *depictionNavigationBar;
 }
 
 - (void)resetFrames {
-    depictionNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
-    depictionWebView.frame = CGRectMake(0,64,self.view.bounds.size.width,self.view.bounds.size.height - 64);
+    depictionWebView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
+    progressView.frame = CGRectMake(0,64,self.view.bounds.size.width,10);
 }
 
 UIAlertView *optionsAlert;
@@ -140,7 +132,7 @@ UIAlertView *optionsAlert;
     packageQueryNamesArray = [[[NSOrderedSet orderedSetWithArray:packageQueryNamesArray] array] mutableCopy];
     [[NSUserDefaults standardUserDefaults] setObject:packageQueryNamesArray forKey:@"queryNames"];
     [[NSUserDefaults standardUserDefaults] setObject:packageQueryArray forKey:@"queryPackages"];
-    [self presentViewController:dpkgViewController animated:YES completion:^ {
+    [self presentViewController:[[UINavigationController alloc] initWithRootViewController:dpkgViewController] animated:YES completion:^ {
         for(NSString *object in [[NSUserDefaults standardUserDefaults] objectForKey:@"queryPackages"]) [dpkgViewController addItemToQuery:object];
         for(NSString *object in [[NSUserDefaults standardUserDefaults] objectForKey:@"queryNames"]) [dpkgViewController addNameToQuery:object];
     }];
@@ -161,7 +153,10 @@ long long length;
 
 - (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
     PackageInfoViewController *packageInfoViewController = [[PackageInfoViewController alloc] init];
-    if(alertView == optionsAlert && buttonIndex == 1) [packageInfoViewController removePackageWithBundleID:toDownloadURL];
+    if(alertView == optionsAlert && buttonIndex == 1) {
+        [packageInfoViewController removePackageWithBundleID:removeID];
+        [_icyUniversalMethods reload];
+    }
     else if(alertView == optionsAlert && buttonIndex == 2) [self downloadWithProgressAndURLString:toDownloadURL];
 }
 

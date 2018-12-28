@@ -11,7 +11,7 @@
 #import <sys/utsname.h>
 
 
-@interface SourcesViewController : UIViewController <UITableViewDataSource, UITableViewDelegate, UIAlertViewDelegate>
+@interface SourcesViewController : UIViewController <UITableViewDataSource, UITableViewDelegate, UIAlertViewDelegate, UINavigationBarDelegate>
 
 - (void)manage;
 + (UITableView *)getSourcesTableView;

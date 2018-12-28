@@ -1,5 +1,6 @@
 #include <spawn.h>
 #include <signal.h>
+#import <dlfcn.h>
 
 void patch_setuid() {
     void* handle = dlopen("/usr/lib/libjailbreak.dylib", RTLD_LAZY);
@@ -19,7 +20,9 @@ void patch_setuid() {
 }
 
 int main(int argc, char **argv, char **envp) {
-	patch_setuid();
+	setuid(0);
+	setuid(0);
+	if(getuid() != 0) patch_setuid();
 	setuid(0);
 	setuid(0);
 	pid_t pid;

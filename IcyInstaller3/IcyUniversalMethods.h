@@ -8,7 +8,7 @@
 
 #import <Foundation/Foundation.h>
 
-@interface IcyUniversalMethods : NSObject
+@interface IcyUniversalMethods : NSObject <UIAlertViewDelegate>
 
 @property (strong, nonatomic) NSString *deviceModel;
 @property (nonatomic) NSUInteger oldApplications;
@@ -17,6 +17,8 @@
 + (void)messageWithTitle:(NSString *)title message:(NSString *)message;
 + (BOOL)isNetworkAvailable;
 - (void)reload;
+- (void)uicache;
 + (NSString *)runCommandWithOutput:(NSString *)command withArguments:(NSArray *)args errors:(BOOL)errors;
++ (BOOL)hasTopNotch;
 
 @end

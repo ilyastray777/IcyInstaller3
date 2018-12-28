@@ -20,7 +20,6 @@
 @synthesize infoText;
 @synthesize removeIndex;
 BOOL infoPresent = NO;
-UINavigationBar *packageInfoNavigationBar;
 UIButton *more;
 UIButton *expand;
 UIButton *files;
@@ -31,33 +30,22 @@ UIButton *files;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.title = @"Info";
     // We'll need to allocate another IcyPackageList here
     _packageList = [[IcyPackageList alloc] init];
     // We'll also need an instance of IcyUniversalMethods here
     _icyUniversalMethods = [[IcyUniversalMethods alloc] init];
-    // Navbar
-    packageInfoNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
-    UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Info"];
-    UIBarButtonItem *removeButton = [[UIBarButtonItem alloc] initWithTitle:@"Remove" style:UIBarButtonItemStylePlain target:self action:@selector(removePackageButtonAction)];
-    UIBarButtonItem *doneButton = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStyleDone target:self action:@selector(dismissInfo)];
-    titleNavigationItem.leftBarButtonItem = removeButton;
-    titleNavigationItem.rightBarButtonItem = doneButton;
-    [packageInfoNavigationBar setItems:@[titleNavigationItem]];
-    self.view.backgroundColor = [UIColor whiteColor];
-    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
-        packageInfoNavigationBar.tintColor = [UIColor orangeColor];
-        packageInfoNavigationBar.barTintColor = [UIColor blackColor];
-        packageInfoNavigationBar.barStyle = UIBarStyleBlack;
-        self.view.backgroundColor = [UIColor blackColor];
-    }
-    [self.view addSubview:packageInfoNavigationBar];
 }
 
 - (void)packageInfoWithIndexPath:(NSIndexPath *)indexPath {
     if(infoPresent) return;
+    self.automaticallyAdjustsScrollViewInsets = NO;
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Remove" style:UIBarButtonItemStylePlain target:self action:@selector(removePackageButtonAction)];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStyleDone target:self action:@selector(dismissInfo)];
+    self.view.backgroundColor = [UIColor whiteColor];
     infoPresent = YES;
     removeIndex = (int)indexPath.row;
-    infoText = [[UITextView alloc] initWithFrame:CGRectMake(15,74,self.view.bounds.size.width - 30,self.view.bounds.size.height - 234)];
+    infoText = [[UITextView alloc] initWithFrame:CGRectMake(15,0,self.view.bounds.size.width - 30,self.view.bounds.size.height - 234)];
     infoText.layer.masksToBounds = YES;
     infoText.layer.cornerRadius = 10;
     infoText.editable = NO;
@@ -109,7 +97,12 @@ UIButton *files;
     if([info rangeOfString:@"hasdepiction"].location != NSNotFound) more.enabled = YES;
     info = [info stringByReplacingOccurrencesOfString:@"hasdepiction" withString:@""];
     infoText.text = info;
-    [self.view bringSubviewToFront:packageInfoNavigationBar];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
+        UINavigationBar.appearance.tintColor = [UIColor orangeColor];
+        UINavigationBar.appearance.barTintColor = [UIColor blackColor];
+        UINavigationBar.appearance.barStyle = UIBarStyleBlack;
+        self.view.backgroundColor = [UIColor blackColor];
+    }
     [self resetFrames];
 }
 
@@ -123,11 +116,23 @@ UIButton *files;
 }
 
 - (void)resetFrames {
-    packageInfoNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
     infoText.frame = CGRectMake(15,74,self.view.bounds.size.width - 30,self.view.bounds.size.height - 234);
     more.frame = CGRectMake(15,self.view.bounds.size.height - 50,self.view.bounds.size.width - 30,40);
     expand.frame = CGRectMake(15,self.view.bounds.size.height - 100,self.view.bounds.size.width - 30,40);
     files.frame = CGRectMake(15,self.view.bounds.size.height - 150,self.view.bounds.size.width - 30,40);
+    if([IcyUniversalMethods hasTopNotch]) {
+        if(UIDeviceOrientationIsPortrait([[UIDevice currentDevice] orientation])) {
+            infoText.frame = CGRectMake(15,100,self.view.bounds.size.width - 30,self.view.bounds.size.height - 284);
+            more.frame = CGRectMake(15,self.view.bounds.size.height - 70,self.view.bounds.size.width - 30,40);
+            expand.frame = CGRectMake(15,self.view.bounds.size.height - 120,self.view.bounds.size.width - 30,40);
+            files.frame = CGRectMake(15,self.view.bounds.size.height - 170,self.view.bounds.size.width - 30,40);
+        } else {
+            infoText.frame = CGRectMake(65,50,self.view.bounds.size.width - 130,self.view.bounds.size.height - 234);
+            more.frame = CGRectMake(65,self.view.bounds.size.height - 70,self.view.bounds.size.width - 130,40);
+            expand.frame = CGRectMake(65,self.view.bounds.size.height - 120,self.view.bounds.size.width - 130,40);
+            files.frame = CGRectMake(65,self.view.bounds.size.height - 170,self.view.bounds.size.width - 130,40);
+        }
+    }
 }
 
 - (void)moreInfo {
@@ -146,7 +151,7 @@ UIButton *files;
     }
     fclose(file);
     DepictionViewController *depictionViewController = [[DepictionViewController alloc] initWithURLString:[[[NSString stringWithCString:str encoding:NSASCIIStringEncoding] substringFromIndex:11] stringByReplacingOccurrencesOfString:@"\n" withString:@""] removeBundleID:nil downloadURLString:nil buttonType:0 packageName:nil];
-    [self presentViewController:depictionViewController animated:YES completion:nil];
+    [self presentViewController:[[UINavigationController alloc] initWithRootViewController:depictionViewController] animated:YES completion:nil];
 }
 
 - (void)expand {
@@ -186,9 +191,7 @@ UIButton *files;
 NSMutableArray *dependencies;
 UIAlertView *dependencyAlert;
 - (void)removePackageWithBundleID:(NSString *)bundleID {
-    NSString *output = nil;
-    if(SYSTEM_VERSION_LESS_THAN(@"11.0")) output = [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-r", bundleID] errors:YES];
-    else [self runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze11"] withArguments:@[@"-r", bundleID] errors:YES];
+    NSString *output = [self runCommandWithOutput:@"/usr/bin/freeze" withArguments:@[@"-r", bundleID] errors:YES];
     // If the command had dependency errors we do some extra stuff to remove dependencies too
     if([output rangeOfString:@"dpkg: dependency problems prevent removal"].location != NSNotFound) {
         output = [output stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"dpkg: dependency problems prevent removal of %@:\n",bundleID] withString:@""];
@@ -206,6 +209,7 @@ UIAlertView *dependencyAlert;
         [dependencyAlert show];
     }
     ManageViewController *manageViewController = [[ManageViewController alloc] init];
+    //infoText.text = output;
     [manageViewController refreshList];
     [_icyUniversalMethods reload];
 }

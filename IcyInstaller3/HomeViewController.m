@@ -59,6 +59,8 @@
 UIWebView *_welcomeWebView;
 UIView *navigationBar;
 UIButton *aboutButton;
+UILabel *nameLabel;
+UILabel *dateLabel;
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
@@ -67,6 +69,7 @@ UIButton *aboutButton;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.title = @"Home";
     _welcomeWebView = [[UIWebView alloc] initWithFrame:CGRectMake(0,100,self.view.bounds.size.width,self.view.bounds.size.height - 100)];
     _welcomeWebView.scrollView.contentInset = UIEdgeInsetsMake(0,0,50,0);
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _welcomeWebView.backgroundColor = [UIColor blackColor];
@@ -95,14 +98,14 @@ UIButton *aboutButton;
     }
     [navigationBar addSubview:aboutButton];
     // The top label
-    UILabel *nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,self.view.bounds.size.width - 130,40)];
+    nameLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,self.view.bounds.size.width - 130,40)];
     nameLabel.backgroundColor = [UIColor clearColor];
     [nameLabel setFont:[UIFont boldSystemFontOfSize:30]];
     nameLabel.text = @"Home";
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) nameLabel.textColor = [UIColor whiteColor];
     [navigationBar addSubview:nameLabel];
     // The less top but still top label
-    UILabel *dateLabel = [[UILabel alloc]initWithFrame:CGRectMake(15,30,self.view.bounds.size.width,20)];
+    dateLabel = [[UILabel alloc]initWithFrame:CGRectMake(15,30,self.view.bounds.size.width,20)];
     NSCalendar *calendar = [NSCalendar currentCalendar];
     NSDateComponents *components = [calendar components:NSCalendarUnitWeekday | NSCalendarUnitDay | NSCalendarUnitMonth fromDate:[NSDate date]];
     NSArray *weekdays = @[@"Sunday", @"Monday", @"Tuesday", @"Wednesday", @"Thursday", @"Friday", @"Saturday"];
@@ -120,7 +123,7 @@ UIButton *aboutButton;
     @autoreleasepool {
         while(i != packageList.packageIDs.count) {
             object = [packageList.packageIDs objectAtIndex:i];
-            if([self returnOfCommand:@"/usr/bin/dpkg" withArguments:@[@"--compare-versions", [self currentVersionOfPackage:object], @"lt", [self versionOfPackage:object]]] == 0) [packagesToUpdate addObject:object];
+            if([self returnOfCommand:@"/usr/bin/dpkg" withArguments:@[@"--compare-versions", [self currentVersionOfPackage:object], @"lt", [self versionOfPackage:object]]] == 0) [packagesToUpdate addObject:object];0
             i++;
         }
     }*/
@@ -130,7 +133,6 @@ UIButton *aboutButton;
 
 - (void)willRotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
     [super willRotateToInterfaceOrientation:toInterfaceOrientation duration:duration];
-    //if(UIInterfaceOrientationIsPortrait(toInterfaceOrientation))
     [self resetFrames];
 }
 
@@ -138,12 +140,25 @@ UIButton *aboutButton;
     _welcomeWebView.frame = CGRectMake(0,100,self.view.bounds.size.width,self.view.bounds.size.height - 100);
     navigationBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 100);
     aboutButton.frame = CGRectMake(self.view.bounds.size.width - 90,58,75,30);
+    if([IcyUniversalMethods hasTopNotch]) {
+        if(UIDeviceOrientationIsLandscape([[UIDevice currentDevice] orientation])) {
+            navigationBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 150);
+            _welcomeWebView.frame = CGRectMake(0,150,self.view.bounds.size.width,self.view.bounds.size.height - 150);
+            aboutButton.frame = CGRectMake(self.view.bounds.size.width - 130,108,75,30);
+            nameLabel.frame = CGRectMake(55,100,self.view.bounds.size.width - 130,40);
+            dateLabel.frame = CGRectMake(55,70,self.view.bounds.size.width,20);
+        } else {
+            navigationBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 150);
+            _welcomeWebView.frame = CGRectMake(0,150,self.view.bounds.size.width,self.view.bounds.size.height - 150);
+            aboutButton.frame = CGRectMake(self.view.bounds.size.width - 90,108,75,30);
+            nameLabel.frame = CGRectMake(15,100,self.view.bounds.size.width - 130,40);
+            dateLabel.frame = CGRectMake(15,70,self.view.bounds.size.width,20);
+        }
+    }
 }
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
-    _welcomeWebView.frame = CGRectMake(0,100,self.view.bounds.size.width,self.view.bounds.size.height - 100);
-    navigationBar.frame = CGRectMake(0, 0, self.view.bounds.size.width, 100);
-    aboutButton.frame = CGRectMake(self.view.bounds.size.width - 90,58,75,30);
+    [self resetFrames];
 }
 
 - (void)doModeStuff {

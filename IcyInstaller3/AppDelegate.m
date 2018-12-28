@@ -45,16 +45,16 @@
     sourcesViewController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Sources" image:[UIImage imageNamed:@"icons/Sources.png"] tag:1];
     manageViewController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Manage" image:[UIImage imageNamed:@"icons/Installed.png"] tag:2];
     searchViewController.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Search" image:[UIImage imageNamed:@"icons/Search.png"] tag:3];
+    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleLightContent];
+    else [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleDefault];
     UITabBarController *tabBarController = [[UITabBarController alloc] init];
-    tabBarController.viewControllers = [NSArray arrayWithObjects:homeViewController, sourcesViewController, manageViewController, searchViewController, nil];
+    tabBarController.viewControllers = [NSArray arrayWithObjects:homeViewController, [[UINavigationController alloc] initWithRootViewController:sourcesViewController], [[UINavigationController alloc] initWithRootViewController:manageViewController], searchViewController, nil];
     tabBarController.delegate = self;
     [[UITabBarItem appearance] setTitleTextAttributes:@{NSFontAttributeName:[UIFont boldSystemFontOfSize:10]} forState:UIControlStateNormal];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
         tabBarController.tabBar.tintColor = [UIColor orangeColor];
         tabBarController.tabBar.barTintColor = [UIColor blackColor];
     }
-    if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleLightContent];
-    else [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleDefault];
     _window.rootViewController = tabBarController;
     [_window makeKeyAndVisible];
     return YES;

@@ -8,6 +8,9 @@
 
 #import "IcyDPKGViewController.h"
 #import "IcyUniversalMethods.h"
+#import <spawn.h>
+#import <signal.h>
+
 @import AVFoundation;
 
 @interface IcyDPKGViewController ()
@@ -21,13 +24,13 @@ NSMutableArray *packageQuery;
 NSMutableArray *packageQueryNames;
 UITableView *queryTableView;
 UIBarButtonItem *doneButton;
-UINavigationBar *DPKGNavigationBar;
 
 - (void)viewDidLoad {
+    self.title = @"Installing...";
     packageQuery = [[NSMutableArray alloc] init];
     packageQueryNames = [[NSMutableArray alloc] init];
     [super viewDidLoad];
-    progressTextView = [[UITextView alloc] initWithFrame:CGRectMake(0,64,self.view.bounds.size.width,self.view.bounds.size.height - 64)];
+    progressTextView = [[UITextView alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height)];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
         progressTextView.backgroundColor = [UIColor blackColor];
         progressTextView.textColor = [UIColor whiteColor];
@@ -41,29 +44,24 @@ UINavigationBar *DPKGNavigationBar;
     progressTextView.hidden = YES;
     // TableView with packages in query
     queryTableView = [[UITableView alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height) style:UITableViewStylePlain];
+    queryTableView.contentInset = UIEdgeInsetsMake(60, 0, 0, 0);
     queryTableView.delegate = self;
     queryTableView.dataSource = self;
     [queryTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
     queryTableView.backgroundColor = [UIColor clearColor];
     queryTableView.allowsSelection = NO;
-    queryTableView.contentInset = UIEdgeInsetsMake(64,0,0,0);
     queryTableView.hidden = NO;
     [self.view addSubview:queryTableView];
     // Navbar
-    DPKGNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
-    UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Installing..."];
     doneButton = [[UIBarButtonItem alloc] initWithTitle:@"Confirm" style:UIBarButtonItemStyleDone target:self action:@selector(actuallyRunDPKG)];
-    titleNavigationItem.rightBarButtonItem = doneButton;
-    [DPKGNavigationBar setItems:@[titleNavigationItem]];
+    self.navigationItem.rightBarButtonItem = doneButton;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
-        DPKGNavigationBar.tintColor = [UIColor orangeColor];
-        DPKGNavigationBar.barTintColor = [UIColor blackColor];
-        DPKGNavigationBar.barStyle = UIBarStyleBlack;
+        UINavigationBar.appearance.tintColor = [UIColor orangeColor];
+        UINavigationBar.appearance.barTintColor = [UIColor blackColor];
+        UINavigationBar.appearance.barStyle = UIBarStyleBlack;
         self.view.backgroundColor = [UIColor blackColor];
     }
-    UIBarButtonItem *leftButton = [[UIBarButtonItem alloc] initWithTitle:@"Dismiss" style:UIBarButtonItemStylePlain target:self action:@selector(dismiss)];
-    titleNavigationItem.leftBarButtonItem = leftButton;
-    [self.view addSubview:DPKGNavigationBar];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Dismiss" style:UIBarButtonItemStylePlain target:self action:@selector(dismiss)];;
     [self resetFrames];
 }
 
@@ -77,9 +75,9 @@ UINavigationBar *DPKGNavigationBar;
 }
 
 - (void)resetFrames {
-    DPKGNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
     queryTableView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
-    progressTextView.frame = CGRectMake(0,64,self.view.bounds.size.width,self.view.bounds.size.height - 64);
+    progressTextView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
+    if([IcyUniversalMethods hasTopNotch]) progressTextView.textContainerInset = UIEdgeInsetsMake(10, 60, 10, 60);
 }
 
 - (void)dismiss {
@@ -128,14 +126,29 @@ UINavigationBar *DPKGNavigationBar;
     queryTableView.hidden = YES;
     doneButton.enabled = NO;
     for (NSString *package in packageQuery) {
-        if(SYSTEM_VERSION_LESS_THAN(@"11.0")) progressTextView.text = [progressTextView.text stringByAppendingString:[IcyUniversalMethods runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze"] withArguments:@[@"-i", [NSString stringWithFormat:@"/var/mobile/Media/%@",package]] errors:NO]];
-        else progressTextView.text = [progressTextView.text stringByAppendingString:[IcyUniversalMethods runCommandWithOutput:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/freeze11"] withArguments:@[@"-i", [NSString stringWithFormat:@"/var/mobile/Media/%@",package]] errors:NO]];
+        progressTextView.text = [progressTextView.text stringByAppendingString:[IcyUniversalMethods runCommandWithOutput:@"/usr/bin/freeze" withArguments:@[@"-i", [NSString stringWithFormat:@"/var/mobile/Media/%@",package]] errors:NO]];
         [[NSFileManager defaultManager] removeItemAtPath:[NSString stringWithFormat:@"/var/mobile/Media/%@",package] error:nil];
     }
     progressTextView.text = [progressTextView.text stringByAppendingString:@"\nFinished running DPKG."];
     [icyUniversalMethods reload];
-    AVPlayer *completion = [[AVPlayer alloc] initWithURL:[NSURL fileURLWithPath:[[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/Done.caf"]]];
-    [completion play];
+}
+
+// Yes + cuz alert called from + method
++ (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+    if(buttonIndex != [alertView cancelButtonIndex]) {
+        pid_t pid;
+        int status;
+        const char *argv[] = {"killall", "-9", "SpringBoard", NULL};
+        posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char**)argv, NULL);
+        waitpid(pid, &status, 0);
+    }
+}
+
+UIAlertView *respringAlert;
++ (void)respring {
+    respringAlert = [[UIAlertView alloc] initWithTitle:@"Respring needed" message:@"Would you like to respring now?" delegate:self cancelButtonTitle:@"No" otherButtonTitles:@"Yes", nil];
+    respringAlert.delegate = self;
+    [respringAlert show];
 }
 
 @end

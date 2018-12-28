@@ -15,7 +15,6 @@
 @implementation SourcesViewController
 UITableView *_sourcesTableView;
 UIRefreshControl *sourcesRefreshControl;
-UINavigationBar *sourcesNavigationBar;
 
 - (id)init {
     if(self = [super init]) {
@@ -34,6 +33,8 @@ UINavigationBar *sourcesNavigationBar;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.title = @"Sources";
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Manage" style:UIBarButtonItemStylePlain target:self action:@selector(manage)];
     // Get device model
     struct utsname systemInfo;
     uname(&systemInfo);
@@ -59,25 +60,18 @@ UINavigationBar *sourcesNavigationBar;
     _sourcesTableView.dataSource = self;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _sourcesTableView.backgroundColor = [UIColor blackColor];
     [_sourcesTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
-    _sourcesTableView.contentInset = UIEdgeInsetsMake(64,0,60,0);
     sourcesRefreshControl = [[UIRefreshControl alloc] init];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [sourcesRefreshControl setTintColor:[UIColor whiteColor]];
     [_sourcesTableView addSubview:sourcesRefreshControl];
     [sourcesRefreshControl addTarget:self action:@selector(refreshSources) forControlEvents:UIControlEventValueChanged];
     [self.view addSubview:_sourcesTableView];
     // Navbar
-    sourcesNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
-    UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Sources"];
-    UIBarButtonItem *manageButton = [[UIBarButtonItem alloc] initWithTitle:@"Manage" style:UIBarButtonItemStylePlain target:self action:@selector(manage)];
-    titleNavigationItem.rightBarButtonItem = manageButton;
-    [sourcesNavigationBar setItems:@[titleNavigationItem]];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
-        sourcesNavigationBar.tintColor = [UIColor orangeColor];
-        sourcesNavigationBar.barTintColor = [UIColor blackColor];
-        sourcesNavigationBar.barStyle = UIBarStyleBlack;
+        self.navigationController.navigationBar.tintColor = [UIColor orangeColor];
+        self.navigationController.navigationBar.barTintColor = [UIColor blackColor];
+        self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
         self.view.backgroundColor = [UIColor blackColor];
     }
-    [self.view addSubview:sourcesNavigationBar];
     [self resetFrames];
 }
 
@@ -92,7 +86,6 @@ UINavigationBar *sourcesNavigationBar;
 
 - (void)resetFrames {
     _sourcesTableView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
-    sourcesNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)theTableView {
@@ -246,7 +239,7 @@ UIAlertView *addSourceAlert;
             long releaseResponse = [self statusCodeOfFileAtURL:[object stringByAppendingString:@"/Release"]];
             if(releaseResponse != 200) {
                 NSLog(@"Request returned code not equal to 200 (%ld)",releaseResponse);
-                [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from yout list because it does not seem to respond.",object]];
+                [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from your list because it does not seem to respond.",object]];
             } else {
                 [self->_sources addObject:[[[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""] stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
                 [self downloadFileFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[NSString stringWithFormat:@"Repos/%@.bz2",[self->_sources lastObject]]];
@@ -264,7 +257,7 @@ UIAlertView *addSourceAlert;
         long releaseResponse = [self statusCodeOfFileAtURL:[object stringByAppendingString:@"/Release"]];
         if(releaseResponse != 200) {
             NSLog(@"Request returned code not equal to 200 (%ld)",releaseResponse);
-            [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from yout list because it does not seem to respond correctly.",object]];
+            [self messageWithTitle:@"Error" message:[NSString stringWithFormat:@"Consider removing the  \"%@\" source from your list because it does not seem to respond correctly.",object]];
         } else {
             [self->_sources addObject:[[[[[[NSString stringWithContentsOfURL:[NSURL URLWithString:[object stringByAppendingString:@"/Release"]] encoding:NSUTF8StringEncoding error:nil] componentsSeparatedByString:@"\n"] objectAtIndex:0] stringByReplacingOccurrencesOfString:@"Origin: " withString:@""] stringByReplacingOccurrencesOfString:@" " withString:@"_"] stringByReplacingOccurrencesOfString:@"\n" withString:@""]];
             //[self downloadFileFromURLString:[object stringByAppendingString:@"/Packages.bz2"] saveFilename:[NSString stringWithFormat:@"Repos/%@.bz2",[self->_sources lastObject]]];

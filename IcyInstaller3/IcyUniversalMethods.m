@@ -13,6 +13,7 @@
 #import <signal.h>
 #import <netdb.h>
 #import "NSTask.h"
+#import "IcyDPKGViewController.h"
 
 @implementation IcyUniversalMethods
 
@@ -29,24 +30,37 @@
     return self;
 }
 
-- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
-    if(alertView == respringAlert && buttonIndex != [alertView cancelButtonIndex]) {
-        pid_t pid;
-        int status;
-        const char *argv[] = {"killall", "-9", "SpringBoard", NULL};
-        posix_spawn(&pid, "/usr/bin/killall", NULL, NULL, (char**)argv, NULL);
-        waitpid(pid, &status, 0);
++ (BOOL)hasTopNotch {
+    if([[UIDevice currentDevice]userInterfaceIdiom]==UIUserInterfaceIdiomPhone) {
+        if (@available(iOS 8.0, *)) {
+            switch ((int)[[UIScreen mainScreen] nativeBounds].size.height) {
+                case 2436:
+                    // iPhone X and Xs
+                    return YES;
+                case 2688:
+                    // iPhone Xs Max
+                    return YES;
+                case 1792:
+                    // iPhone Xr
+                    return YES;
+                default:
+                    // unknown device, in case an apple employe decides to test icy on a prototype lol
+                    return NO;
+            }
+        } else {
+            return NO;
+        }
     }
+    return NO;
 }
 
-UIAlertView *respringAlert;
 - (void)respring {
-    respringAlert = [[UIAlertView alloc] initWithTitle:@"Respring required" message:@"Would you like to respring right now?" delegate:self cancelButtonTitle:@"No" otherButtonTitles:@"Yes", nil];
-    [respringAlert show];
+    [IcyDPKGViewController respring];
 }
 
 - (void)uicache {
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading caches" message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Reloading caches..." message:nil delegate:self cancelButtonTitle:nil otherButtonTitles:nil];
+    alert.delegate = self;
     [alert show];
     // Run uicache
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
@@ -98,13 +112,11 @@ OBJC_EXTERN CFStringRef MGCopyAnswer(CFStringRef key) WEAK_IMPORT_ATTRIBUTE;
     [task setCurrentDirectoryPath:@"/"];
     [task setArguments:args];
     NSPipe *out = [NSPipe pipe];
-    NSPipe *err = [NSPipe pipe];
     [task setStandardOutput:out];
-    [task setStandardError:err];
+    if(errors) [task setStandardError:out];
     [task launch];
     [task waitUntilExit];
-    if(errors) return [[NSMutableString alloc] initWithData:[[err fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
-    else return [[NSMutableString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
+    return [[NSMutableString alloc] initWithData:[[out fileHandleForReading] readDataToEndOfFile] encoding:NSUTF8StringEncoding];
 }
 
 @end

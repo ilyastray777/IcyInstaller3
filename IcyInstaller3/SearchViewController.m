@@ -24,6 +24,7 @@ static NSMutableArray *_searchFilenames;
 NSString *_filename;
 UITextField *_searchField;
 UIProgressView *searchProgress;
+UILabel *searchLabel;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -34,8 +35,9 @@ UIProgressView *searchProgress;
     _searchDescs = [[NSMutableArray alloc] init];
     _searchDepictions = [[NSMutableArray alloc] init];
     _searchFilenames = [[NSMutableArray alloc] init];
+    
     // Label saying "Search"
-    UILabel *searchLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,self.view.bounds.size.width - 130,40)];
+    searchLabel = [[UILabel alloc] initWithFrame:CGRectMake(15,50,self.view.bounds.size.width - 130,40)];
     searchLabel.backgroundColor = [UIColor clearColor];
     [searchLabel setFont:[UIFont boldSystemFontOfSize:30]];
     searchLabel.text = @"Search";
@@ -84,11 +86,19 @@ UIProgressView *searchProgress;
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     [self resetFrames];
+    PackageInfoViewController *infoViewController = [[PackageInfoViewController alloc] init];
+    [infoViewController packageInfoWithIndexPath:[NSIndexPath indexPathWithIndex:1]];
+    [self presentViewController:[[UINavigationController alloc] initWithRootViewController:infoViewController] animated:YES completion:nil];
 }
 
 - (void)resetFrames {
     _searchField.frame = CGRectMake(15,100,self.view.bounds.size.width - 30,35);
     _searchTableView.frame = CGRectMake(0,150,self.view.bounds.size.width,self.view.bounds.size.height - 100);
+    searchLabel.frame = CGRectMake(15,50,self.view.bounds.size.width - 130,40);
+    if([IcyUniversalMethods hasTopNotch] && UIDeviceOrientationIsLandscape([[UIDevice currentDevice] orientation])) {
+        _searchField.frame = CGRectMake(55,100,self.view.bounds.size.width - 100,35);
+        searchLabel.frame = CGRectMake(55,50,self.view.bounds.size.width - 135,40);
+    }
 }
 
 + (UITextField *)getSearchField {
@@ -262,7 +272,7 @@ UIProgressView *searchProgress;
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@" " withString:@""];
     depictionString = [depictionString stringByReplacingOccurrencesOfString:@"\n" withString:@""];
     DepictionViewController *depictionViewController = [[DepictionViewController alloc] initWithURLString:depictionString removeBundleID:[_searchPackages objectAtIndex:indexPath.row] downloadURLString:[_searchFilenames objectAtIndex:indexPath.row] buttonType:buttonType packageName:[_searchNames objectAtIndex:indexPath.row]];
-    [self presentViewController:depictionViewController animated:YES completion:nil];
+    [self presentViewController:[[UINavigationController alloc] initWithRootViewController:depictionViewController] animated:YES completion:nil];
 }
 
 + (int)getPackageIndex {

@@ -18,10 +18,10 @@
 UITableView *_manageTableView;
 IcyPackageList *_packageList;
 UIRefreshControl *refreshControl;
-UINavigationBar *manageNavigationBar;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.title = @"Manage";
     // Initialize view controller and package list
     _packageList = [[IcyPackageList alloc] init];
     // Table view
@@ -30,7 +30,6 @@ UINavigationBar *manageNavigationBar;
     _manageTableView.dataSource = self;
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) _manageTableView.backgroundColor = [UIColor blackColor];
     [_manageTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
-    _manageTableView.contentInset = UIEdgeInsetsMake(70,0,60,0);
     // Pull-to-refresh stuff
     refreshControl = [[UIRefreshControl alloc] init];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) [refreshControl setTintColor:[UIColor whiteColor]];
@@ -40,18 +39,13 @@ UINavigationBar *manageNavigationBar;
     [self.view bringSubviewToFront:_manageTableView];
     [_manageTableView reloadData];
     // Navbar
-    manageNavigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0,0,self.view.bounds.size.width,64)];
-    UINavigationItem *titleNavigationItem = [[UINavigationItem alloc] initWithTitle:@"Installed"];
-    UIBarButtonItem *backupButton = [[UIBarButtonItem alloc] initWithTitle:@"Backup" style:UIBarButtonItemStylePlain target:self action:@selector(backup)];
-    titleNavigationItem.rightBarButtonItem = backupButton;
-    [manageNavigationBar setItems:@[titleNavigationItem]];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Backup" style:UIBarButtonItemStylePlain target:self action:@selector(backup)];
     if([[NSUserDefaults standardUserDefaults] boolForKey:@"darkMode"]) {
-        manageNavigationBar.tintColor = [UIColor orangeColor];
-        manageNavigationBar.barTintColor = [UIColor blackColor];
-        manageNavigationBar.barStyle = UIBarStyleBlack;
+        self.navigationController.navigationBar.tintColor = [UIColor orangeColor];
+        self.navigationController.navigationBar.barTintColor = [UIColor blackColor];
+        self.navigationController.navigationBar.barStyle = UIBarStyleBlack;
         self.view.backgroundColor = [UIColor blackColor];
     }
-    [self.view addSubview:manageNavigationBar];
     [self resetFrames];
 }
 
@@ -66,7 +60,6 @@ UINavigationBar *manageNavigationBar;
 
 - (void)resetFrames {
     _manageTableView.frame = CGRectMake(0,0,self.view.bounds.size.width,self.view.bounds.size.height);
-    manageNavigationBar.frame = CGRectMake(0,0,self.view.bounds.size.width,64);
 }
 
 - (void)backup {
@@ -129,7 +122,7 @@ UINavigationBar *manageNavigationBar;
 - (void)tableView:(UITableView *)theTableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     PackageInfoViewController *infoViewController = [[PackageInfoViewController alloc] init];
     if(![PackageInfoViewController getInfoPresent]) [infoViewController packageInfoWithIndexPath:indexPath];
-    [self presentViewController:infoViewController animated:YES completion:nil];
+    [self presentViewController:[[UINavigationController alloc] initWithRootViewController:infoViewController] animated:YES completion:nil];
     [theTableView deselectRowAtIndexPath:indexPath animated:YES];
 }
 
