@@ -1,4 +1,6 @@
 # IcyInstaller3
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Filyastray777%2FIcyInstaller3.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Filyastray777%2FIcyInstaller3?ref=badge_shield)
+
 Icy is a lightweight DPKG-based installer for iOS.
 # Credits
 - https://dribbble.com/shots/3363903-Soft-Gradients-sketch-psd-xd
@@ -16,3 +18,7 @@ Yes and yes. It uses UIAlertView for iOS 7 support (call me an idiot but UIAlert
 Add artikushg.github.io to Cydia and install Icy from there.
 # I am a developer. Can I fork or contribute this?
 Yes and yes. You can do anything the MIT license allows.
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Filyastray777%2FIcyInstaller3.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Filyastray777%2FIcyInstaller3?ref=badge_large)
